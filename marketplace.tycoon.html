@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robux Marketplace Tycoon</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <!-- Admin Panel (Hidden) -->
+    <div id="admin-panel" class="hidden glass-panel">
+        <h2>Admin Panel</h2>
+        <div class="admin-controls">
+            <div class="admin-section">
+                <label>Set R$</label>
+                <input type="number" id="admin-robux" placeholder="Enter amount">
+                <div class="admin-btn-row">
+                    <button id="btn-admin-set">Set Funds</button>
+                    <button id="btn-admin-add">Add Funds</button>
+                    <button id="btn-admin-sub">Remove Funds</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <label>Give Item</label>
+                <select id="admin-item-select"></select>
+                <button id="btn-admin-give-item">Give Item</button>
+            </div>
+
+            <div class="admin-section">
+                <label>Give Investment</label>
+                <select id="admin-invest-select"></select>
+                <button id="btn-admin-give-invest">Give Investment</button>
+            </div>
+
+            <div class="admin-section">
+                <label>Multiplier</label>
+                <input type="number" id="admin-multiplier" placeholder="CPS Multiplier (e.g. 10)" value="1">
+                <button id="btn-admin-multiplier">Set Multiplier</button>
+            </div>
+
+            <div class="admin-section admin-toggle-row">
+                <button id="btn-admin-god">Toggle God Mode</button>
+                <button id="btn-admin-reset">Reset Game</button>
+            </div>
+
+            <div class="admin-section">
+                <label>Admin CMD</label>
+                <input type="text" id="admin-cmd-input" placeholder="/givemoney 1000, /godmode, /help...">
+                <button id="btn-admin-cmd">Execute</button>
+            </div>
+
+            <button id="btn-admin-close" class="admin-close-btn">Close Panel</button>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <section id="start-screen" class="view active">
+        <div class="glass-container">
+            <h1 class="glow-text">Marketplace<br><span class="robux">R$</span> Tycoon</h1>
+            <p>Buy low, sell high, and invest your way to the top!</p>
+            <div class="menu-options">
+                <button id="btn-play" class="primary-btn">Play Game</button>
+                <div class="instructions">Press `~` for Admin Panel</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Game Screen -->
+    <section id="game-screen" class="view hidden">
+        <header class="game-header">
+            <div class="header-left">
+                <div class="balance-container">
+                    <span class="robux-symbol">R$</span>
+                    <span id="player-balance" class="balance-amount">50</span>
+                </div>
+                <div id="passive-income-display" class="cps-display">R$ +0 /sec</div>
+            </div>
+            <button id="btn-restart" class="secondary-btn">Quit</button>
+        </header>
+
+        <main class="game-layout">
+            <div class="left-section">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="market-tab">Marketplace</button>
+                    <button class="tab-btn" data-tab="invest-tab">Investments</button>
+                    <button class="tab-btn" data-tab="loan-tab">Loans</button>
+                    <button class="tab-btn" data-tab="startup-tab">Startups</button>
+                </div>
+                
+                <!-- Market Area -->
+                <div id="market-tab" class="panel tab-content active">
+                    <h2>Marketplace</h2>
+                    <div id="market-grid" class="item-grid"></div>
+                </div>
+
+                <!-- Investments Area -->
+                <div id="invest-tab" class="panel tab-content">
+                    <h2>Investments</h2>
+                    <p class="section-desc">Buy investments to generate Robux automatically every second.</p>
+                    
+                    <div class="risk-section panel" style="background: rgba(255, 65, 108, 0.1); border: 1px solid rgba(255, 65, 108, 0.3); margin-bottom: 20px; padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #ff4b2b; margin-bottom: 10px;">🎰 High-Risk Trading</h3>
+                        <p>Enter an amount to trade. You have a chance to multiply it, or lose it entirely!</p>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="number" id="trade-amount" placeholder="Amount (e.g. 500)" style="padding: 10px; border-radius: 5px; border: none; flex-grow: 1; background: rgba(255,255,255,0.1); color: white;">
+                            <button id="btn-trade" class="action-btn" style="margin: 0; background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); width: 100px;">Trade</button>
+                        </div>
+                        <div id="trade-result" style="margin-top: 15px; font-weight: bold; min-height: 20px;"></div>
+                    </div>
+
+                    <div id="investments-grid" class="invest-grid"></div>
+                </div>
+
+                <!-- Loans Area -->
+                <div id="loan-tab" class="panel tab-content">
+                    <h2>Loans</h2>
+                    <p class="section-desc">Borrow R$ to grow faster, but repay with interest before penalties kick in!</p>
+                    
+                    <div id="active-loans-section" style="margin-bottom: 20px; display: none;">
+                        <h3 style="color: #ff4b2b; margin-bottom: 10px;">📋 Your Active Loans</h3>
+                        <div id="active-loans-list" class="loan-list"></div>
+                    </div>
+
+                    <div id="loans-grid" class="loan-grid"></div>
+                </div>
+
+                <!-- Startups Area -->
+                <div id="startup-tab" class="panel tab-content">
+                    <h2>Startups</h2>
+                    <p class="section-desc">Create or invest in startups to earn passive income per second!</p>
+                    
+                    <div class="startup-create-section" style="background: rgba(0, 176, 111, 0.1); border: 1px solid rgba(0, 176, 111, 0.3); margin-bottom: 20px; padding: 15px; border-radius: 10px;">
+                        <h3 style="color: #00b06f; margin-bottom: 10px;">🚀 Found a Startup</h3>
+                        <p>Name your company and start raising capital!</p>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="text" id="startup-name-input" placeholder="Company Name (e.g. SpaceX)" style="padding: 10px; border-radius: 5px; border: none; flex-grow: 1; background: rgba(255,255,255,0.1); color: white;">
+                            <button id="btn-create-startup" class="action-btn" style="margin: 0; background: linear-gradient(135deg, #00b06f 0%, #00d285 100%); width: 120px;">Create</button>
+                        </div>
+                    </div>
+
+                    <div id="startups-grid" class="startup-grid"></div>
+                </div>
+            </div>
+
+            <!-- Inventory Area -->
+            <div class="right-section panel inventory-panel">
+                <h2>Your Inventory</h2>
+                <div id="inventory-grid" class="item-grid split-grid"></div>
+                <div id="empty-inventory-msg">Your inventory is empty.</div>
+                
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+                <h2>Your Portfolio</h2>
+                <div id="portfolio-list" class="portfolio-list"></div>
+                
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+                <h2>Your Startups</h2>
+                <div id="startup-portfolio-list" class="portfolio-list"></div>
+            </div>
+        </main>
+
+        <!-- Global Chat -->
+        <div class="chat-panel panel">
+            <div class="chat-header">
+                <h3>🌐 Global Chat</h3>
+            </div>
+            <div id="chat-container" class="chat-container"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-input" placeholder="Type a message or /command...">
+                <button id="chat-send-btn">Send</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Game Over Screen -->
+    <section id="game-over-screen" class="view hidden">
+        <div class="glass-container error-container">
+            <h1 class="error-text">Bankrupt!</h1>
+            <p>You have 0 R$, no items to sell, and no passive income. Game Over.</p>
+            <button id="btn-retry" class="primary-btn">Try Again</button>
+        </div>
+    </section>
+
+    <!-- 
+        UPDATE LEAK MODAL
+        This modal appears 10 seconds after clicking "Play Game".
+        Use this to tease upcoming updates to your players.
+        
+        HOW TO USE:
+        1. Replace the [UPDATE INFO TEXT] below with details about your new update.
+        2. To add a real photo leak, replace the question-mark placeholder div
+           with an <img> tag pointing to your leaked image.
+        3. To change how long before this appears, edit the timer in script.js
+           (search for "startLeakTimer" — default is 10000ms = 10 seconds).
+    -->
+    <div id="update-leak-modal" class="hidden">
+        <div class="update-leak-content">
+            <!-- Big mystery icon at the top -->
+            <div class="leak-question-mark">???</div>
+            
+            <!-- Title of the leak screen -->
+            <h2 class="leak-title">UPDATE LEAK</h2>
+            
+            <!-- 
+                UPDATE INFO SECTION
+                Put your update details here. Replace the paragraph below
+                with info about what the new update will add/change.
+                Example: "A new trading system is coming with live auctions!"
+            -->
+            <div class="leak-info-card">
+                <h3>📢 New Update Info(reallygood)</h3>
+                <p>
+                    <!-- REPLACE THIS TEXT WITH YOUR UPDATE DESCRIPTION -->
+                    [new stuff and somthing insane coming sooooonnn.]
+                </p>
+            </div>
+            
+            <!-- 
+                PHOTO LEAK SECTION
+                Linked image: live.png
+            -->
+            <div class="leak-photo-card">
+                <div class="leak-photo-placeholder">
+                    <img src="live.png" alt="Leaked photo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 16px;">
+                </div>
+                <p>Photo Leak</p>
+            </div>
+            
+            <button id="btn-close-leak" class="leak-close-btn">Close</button>
+        </div>
+    </div>
+
+    <!-- Credits Modal -->
+    <div id="credits-modal" class="hidden">
+        <div class="credits-content">
+            <h2 class="credits-title">Credits</h2>
+            <div class="credits-list">
+                <div class="credit-entry">
+                    <h4>Vadim berthier</h4>
+                    <span class="credit-role">Lead Developer</span>
+                    <p>Designed the core game systems and architecture.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Siobhan</h4>
+                    <span class="credit-role">Worlds best sister</span>
+                    <p>she is very nice , tets my game.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>mina</h4>
+                    <span class="credit-role">worlds best mom</span>
+                    <p>she is the best mom.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>alex</h4>
+                    <span class="credit-role">worlds best dad</span>
+                    <p>best dad in tha world.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Name Five</h4>
+                    <span class="credit-role">Community Manager</span>
+                    <p>Managed chat features and player engagement.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Name Six</h4>
+                    <span class="credit-role">QA Tester</span>
+                    <p>Ensured bugs were squashed before release.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Name Seven</h4>
+                    <span class="credit-role">Sound & Audio</span>
+                    <p>Created immersive audio cues and atmosphere.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Name Eight</h4>
+                    <span class="credit-role">Writer</span>
+                    <p>Wrote item descriptions and update leak lore.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Name Nine</h4>
+                    <span class="credit-role">Marketing</span>
+                    <p>Spread the word and grew the player base.</p>
+                </div>
+                <div class="credit-entry">
+                    <h4>Name Ten</h4>
+                    <span class="credit-role">Special Thanks</span>
+                    <p>For endless support, feedback, and inspiration.</p>
+                </div>
+            </div>
+            <button id="btn-close-credits" class="credits-close-btn">Close</button>
+        </div>
+    </div>
+
+    <script src="items.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

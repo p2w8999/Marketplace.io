@@ -1,0 +1,179 @@
+  const itemsData = [
+    {
+      id: 'tshirt',
+      name: 'Noob Shirt',
+      price: 50,
+      image: null
+    },
+    {
+      id: 'cap',
+      name: 'Basic Cap',
+      price: 100,
+      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/cap_1775551243943.png'
+    },
+    {
+      id: 'sword',
+      name: 'Epic Sword',
+      price: 500,
+      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/sword_1775551471121.png'
+    },
+    {
+      id: 'headphone',
+      name: 'Limited Headphones',
+      price: 2500,
+      image: null
+    },
+    {
+      id: 'dominus',
+      name: 'Dark Dominus',
+      price: 5000,
+      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/dominus_1775551554888.png'
+    },
+    {
+      id: 'wings',
+      name: 'Neon Wings',
+      price: 20000,
+      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/wings_1775551659289.png'
+    },
+    {
+      id: 'shades',
+      name: 'Clockwork Shades',
+      price: 50000,
+      image: null
+    },
+    {
+      id: 'fedora',
+      name: 'Sparkle Time Fedora',
+      price: 100000,
+      image: null
+    },
+    {
+      id: 'valkyrie',
+      name: 'Valkyrie Helm',
+      price: 250000,
+      image: null
+    },
+    {
+      id: 'korblox',
+      name: 'Korblox Deathspeaker',
+      price: 500000,
+      image: null
+    },
+    {
+      id: 'golden_crown',
+      name: 'Golden Crown of Prosperity',
+      price: 1000000,
+      image: null
+    },
+    {
+      id: 'diamond_ring',
+      name: 'Flawless Diamond Ring',
+      price: 2500000,
+      image: null
+    },
+    {
+      id: 'luxury_yacht',
+      name: 'Mega Luxury Yacht',
+      price: 10000000,
+      image: null
+    },
+    {
+      id: 'private_jet',
+      name: 'Custom Private Jet',
+      price: 50000000,
+      image: null
+    },
+    {
+      id: 'space_station',
+      name: 'Orbital Space Station',
+      price: 100000000,
+      image: null
+    },
+    {
+      id: 'moon_base',
+      name: 'Lunar Base Alpha',
+      price: 500000000,
+      image: null
+    },
+    {
+      id: 'quantum_computer',
+      name: 'Quantum Supercomputer',
+      price: 2000000000,
+      image: null
+    },
+    {
+      id: 'fusion_reactor',
+      name: 'Cold Fusion Reactor',
+      price: 10000000000,
+      image: null
+    },
+    {
+      id: 'ai_core',
+      name: 'Sentient AI Core',
+      price: 50000000000,
+      image: null
+    },
+    {
+      id: 'planet',
+      name: 'Private Planet',
+      price: 250000000000,
+      image: null
+    },
+    {
+      id: 'star',
+      name: 'Dwarf Star',
+      price: 1000000000000,
+      image: null
+    },
+    {
+      id: 'black_hole',
+      name: 'Controlled Black Hole',
+      price: 50000000000000,
+      image: null
+    },
+    {
+      id: 'universe',
+      name: 'Pocket Universe',
+      price: 1000000000000000,
+      image: null
+    },
+    {
+      id: 'omniverse',
+      name: 'Omniverse Key',
+      price: 50000000000000000,
+      image: null
+    },
+    {
+      id: 'infinity_gauntlet',
+      name: 'Infinity Gauntlet',
+      price: 1000000000000000000,
+      image: null
+    }
+  ];
+
+  const investmentsData = [
+    { id: 'lemonade', name: 'Lemonade Stand', price: 1500, cps: 5, description: 'Sells lemonade to noobs.' },
+    { id: 'group_funds', name: 'Group Payouts', price: 5000, cps: 20, description: 'Small passive income from a group.' },
+    { id: 'trading_bot', name: 'Trading Bot', price: 25000, cps: 150, description: 'Automatically flips cheap limiteds.' },
+    { id: 'game_pass', name: 'Gamepass Revenue', price: 100000, cps: 750, description: 'Revenue from a popular game.' },
+    { id: 'crypto_farm', name: 'Crypto Farm', price: 500000, cps: 5000, description: 'Massive server farm generating Robux.' },
+    { id: 'roblox_corp', name: 'RBLX Shares', price: 2500000, cps: 35000, description: 'Own a piece of the corporation.' },
+    { id: 'tech_startup', name: 'Tech Startup IPO', price: 10000000, cps: 150000, description: 'Invest in a promising AI tech startup.' },
+    { id: 'real_estate', name: 'Real Estate Empire', price: 50000000, cps: 800000, description: 'Collect rent from properties worldwide.' },
+    { id: 'space_ex', name: 'Anti-Amazon Space Corp', price: 250000000, cps: 5000000, description: 'Shares in a private space agency.' },
+    { id: 'mars_colony', name: 'Mars Colony Fund', price: 1000000000, cps: 25000000, description: 'Interplanetary investment returns.' },
+    { id: 'dyson_sphere', name: 'Dyson Sphere Project', price: 10000000000, cps: 300000000, description: 'Harness the energy of a star for infinite wealth.' },
+    { id: 'galactic_empire', name: 'Galactic Empire Group', price: 100000000000, cps: 4000000000, description: 'Rule the galaxy and tax its inhabitants.' },
+    { id: 'multiverse_portal', name: 'Multiverse Portal', price: 1000000000000, cps: 50000000000, description: 'Harvest wealth from infinite alternate realities.' },
+    { id: 'time_machine', name: 'Time Machine Inc.', price: 10000000000000, cps: 600000000000, description: 'Invest in past and future simultaneously.' },
+    { id: 'reality_engine', name: 'Reality Engine', price: 100000000000000, cps: 8000000000000, description: 'Rewrite the laws of physics for profit.' },
+    { id: 'ascension', name: 'Final Ascension', price: 1000000000000000, cps: 100000000000000, description: 'Become a financial deity.' },
+    { id: 'cosmic_bank', name: 'Cosmic Central Bank', price: 5000000000000000, cps: 600000000000000, description: 'Control the currency of the universe.' },
+    { id: 'entropy_harvester', name: 'Entropy Harvester', price: 25000000000000000, cps: 3500000000000000, description: 'Convert chaos into pure profit.' },
+    { id: 'void_mines', name: 'Void Mines', price: 100000000000000000, cps: 20000000000000000, description: 'Mine resources from the void between realities.' },
+    { id: 'singularity_fund', name: 'Singularity Fund', price: 500000000000000000, cps: 100000000000000000, description: 'Invest in the technological singularity.' },
+    { id: 'omniversal_treasury', name: 'Omniversal Treasury', price: 1000000000000000000, cps: 250000000000000000, description: 'The ultimate investment. Infinite returns.' },
+    { id: 'metaverse_kingdom', name: 'Metaverse Kingdom', price: 5000000000000000000, cps: 1000000000000000000, description: 'Rule over all virtual worlds.' },
+    { id: 'quantum_goldmine', name: 'Quantum Goldmine', price: 25000000000000000000, cps: 5000000000000000000, description: 'Extract gold from quantum fluctuations.' },
+    { id: 'eternal_dividend', name: 'Eternal Dividend', price: 100000000000000000000, cps: 25000000000000000000, description: 'Dividends that pay out across eternity.' }
+  ];
