@@ -1,157 +1,32 @@
-  const itemsData = [
-    {
-      id: 'tshirt',
-      name: 'Noob Shirt',
-      price: 50,
-      image: null
-    },
-    {
-      id: 'cap',
-      name: 'Basic Cap',
-      price: 100,
-      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/cap_1775551243943.png'
-    },
-    {
-      id: 'sword',
-      name: 'Epic Sword',
-      price: 500,
-      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/sword_1775551471121.png'
-    },
-    {
-      id: 'headphone',
-      name: 'Limited Headphones',
-      price: 2500,
-      image: null
-    },
-    {
-      id: 'dominus',
-      name: 'Dark Dominus',
-      price: 5000,
-      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/dominus_1775551554888.png'
-    },
-    {
-      id: 'wings',
-      name: 'Neon Wings',
-      price: 20000,
-      image: 'file:///C:/Users/hp/.gemini/antigravity/brain/84cc4e0f-01f8-4481-9cd2-de3c4517f58c/wings_1775551659289.png'
-    },
-    {
-      id: 'shades',
-      name: 'Clockwork Shades',
-      price: 50000,
-      image: null
-    },
-    {
-      id: 'fedora',
-      name: 'Sparkle Time Fedora',
-      price: 100000,
-      image: null
-    },
-    {
-      id: 'valkyrie',
-      name: 'Valkyrie Helm',
-      price: 250000,
-      image: null
-    },
-    {
-      id: 'korblox',
-      name: 'Korblox Deathspeaker',
-      price: 500000,
-      image: null
-    },
-    {
-      id: 'golden_crown',
-      name: 'Golden Crown of Prosperity',
-      price: 1000000,
-      image: null
-    },
-    {
-      id: 'diamond_ring',
-      name: 'Flawless Diamond Ring',
-      price: 2500000,
-      image: null
-    },
-    {
-      id: 'luxury_yacht',
-      name: 'Mega Luxury Yacht',
-      price: 10000000,
-      image: null
-    },
-    {
-      id: 'private_jet',
-      name: 'Custom Private Jet',
-      price: 50000000,
-      image: null
-    },
-    {
-      id: 'space_station',
-      name: 'Orbital Space Station',
-      price: 100000000,
-      image: null
-    },
-    {
-      id: 'moon_base',
-      name: 'Lunar Base Alpha',
-      price: 500000000,
-      image: null
-    },
-    {
-      id: 'quantum_computer',
-      name: 'Quantum Supercomputer',
-      price: 2000000000,
-      image: null
-    },
-    {
-      id: 'fusion_reactor',
-      name: 'Cold Fusion Reactor',
-      price: 10000000000,
-      image: null
-    },
-    {
-      id: 'ai_core',
-      name: 'Sentient AI Core',
-      price: 50000000000,
-      image: null
-    },
-    {
-      id: 'planet',
-      name: 'Private Planet',
-      price: 250000000000,
-      image: null
-    },
-    {
-      id: 'star',
-      name: 'Dwarf Star',
-      price: 1000000000000,
-      image: null
-    },
-    {
-      id: 'black_hole',
-      name: 'Controlled Black Hole',
-      price: 50000000000000,
-      image: null
-    },
-    {
-      id: 'universe',
-      name: 'Pocket Universe',
-      price: 1000000000000000,
-      image: null
-    },
-    {
-      id: 'omniverse',
-      name: 'Omniverse Key',
-      price: 50000000000000000,
-      image: null
-    },
-    {
-      id: 'infinity_gauntlet',
-      name: 'Infinity Gauntlet',
-      price: 1000000000000000000,
-      image: null
-    }
-  ];
+const itemsData = [
+    { id: 'tshirt', name: 'Noob Shirt', price: 50, image: null },
+    { id: 'cap', name: 'Basic Cap', price: 100, image: 'cap_1775551243943.png' },
+    { id: 'sword', name: 'Epic Sword', price: 500, image: 'sword_1775551471121.png' },
+    { id: 'headphone', name: 'Limited Headphones', price: 2500, image: null },
+    { id: 'dominus', name: 'Dark Dominus', price: 5000, image: 'dominus_1775551554888.png' },
+    { id: 'wings', name: 'Neon Wings', price: 20000, image: 'wings_1775551659289.png' },
+    { id: 'shades', name: 'Clockwork Shades', price: 50000, image: null },
+    { id: 'fedora', name: 'Sparkle Time Fedora', price: 100000, image: null },
+    { id: 'valkyrie', name: 'Valkyrie Helm', price: 250000, image: null },
+    { id: 'korblox', name: 'Korblox Deathspeaker', price: 500000, image: null },
+    { id: 'golden_crown', name: 'Golden Crown of Prosperity', price: 1000000, image: null },
+    { id: 'diamond_ring', name: 'Flawless Diamond Ring', price: 2500000, image: null },
+    { id: 'luxury_yacht', name: 'Mega Luxury Yacht', price: 10000000, image: null },
+    { id: 'private_jet', name: 'Custom Private Jet', price: 50000000, image: null },
+    { id: 'space_station', name: 'Orbital Space Station', price: 100000000, image: null },
+    { id: 'moon_base', name: 'Lunar Base Alpha', price: 500000000, image: null },
+    { id: 'quantum_computer', name: 'Quantum Supercomputer', price: 2000000000, image: null },
+    { id: 'fusion_reactor', name: 'Cold Fusion Reactor', price: 10000000000, image: null },
+    { id: 'ai_core', name: 'Sentient AI Core', price: 50000000000, image: null },
+    { id: 'planet', name: 'Private Planet', price: 250000000000, image: null },
+    { id: 'star', name: 'Dwarf Star', price: 1000000000000, image: null },
+    { id: 'black_hole', name: 'Controlled Black Hole', price: 50000000000000, image: null },
+    { id: 'universe', name: 'Pocket Universe', price: 1000000000000000, image: null },
+    { id: 'omniverse', name: 'Omniverse Key', price: 50000000000000000, image: null },
+    { id: 'infinity_gauntlet', name: 'Infinity Gauntlet', price: 1000000000000000000, image: null }
+];
 
-  const investmentsData = [
+const investmentsData = [
     { id: 'lemonade', name: 'Lemonade Stand', price: 1500, cps: 5, description: 'Sells lemonade to noobs.' },
     { id: 'group_funds', name: 'Group Payouts', price: 5000, cps: 20, description: 'Small passive income from a group.' },
     { id: 'trading_bot', name: 'Trading Bot', price: 25000, cps: 150, description: 'Automatically flips cheap limiteds.' },
@@ -176,4 +51,4 @@
     { id: 'metaverse_kingdom', name: 'Metaverse Kingdom', price: 5000000000000000000, cps: 1000000000000000000, description: 'Rule over all virtual worlds.' },
     { id: 'quantum_goldmine', name: 'Quantum Goldmine', price: 25000000000000000000, cps: 5000000000000000000, description: 'Extract gold from quantum fluctuations.' },
     { id: 'eternal_dividend', name: 'Eternal Dividend', price: 100000000000000000000, cps: 25000000000000000000, description: 'Dividends that pay out across eternity.' }
-  ];
+];
