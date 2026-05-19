@@ -1,899 +1,1062 @@
-// Game State
-let balance = 50;
-let inventory = [];
-let portfolio = {};
-let passiveIncomePerSec = 0;
-let incomeInterval;
-let hasRedirected = false;
-let savFolderHandle = null;
 
-const DIAMOND_THRESHOLD = 1_000_000_000;
-const FINAL_CUT_URL = 'file:///C:/Users/hp/Videos/FINAL%20CUT/final.html';
-const SHOP_URL = 'C:\Users\hp\Desktop\vadim personal\vadim personal\html code homework\ptm.html';
-const SAV_FOLDER_NAME = 'sav';
-const MAX_SAVES = 5;
+/**
+ * ROBUX MARKETPLACE TYCOON - CORE ENGINE
+ * Refactored for performance, stability, and security.
+ */
 
-function formatCurrency(amount) {
-    if (amount >= DIAMOND_THRESHOLD) {
-        const diamonds = amount / DIAMOND_THRESHOLD;
-        const formatted = Number.isInteger(diamonds) ? diamonds.toLocaleString() : diamonds.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        return `${formatted} 💎`;
-    }
-    return `R$ ${amount.toLocaleString()}`;
-}
-
-// File System Save/Load
-async function getSavFolder() {
-    if (savFolderHandle) return savFolderHandle;
-    try {
-        const dirHandle = await window.showDirectoryPicker();
-        savFolderHandle = await dirHandle.getDirectoryHandle(SAV_FOLDER_NAME, { create: true });
-        return savFolderHandle;
-    } catch (e) {
-        console.warn('Directory picker cancelled or failed:', e);
-        return null;
-    }
-}
-
-async function saveGame() {
-    const folder = await getSavFolder();
-    if (!folder) return false;
-
-    const saveData = {
-        balance,
-        inventory,
-        portfolio,
-        passiveIncomePerSec,
-        activeLoans,
-        startups,
-        startupPortfolio,
-        chatLog,
-        godMode,
-        cpsMultiplier,
-        hasRedirected,
-        savedAt: new Date().toISOString()
-    };
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `save_${timestamp}.json`;
-
-    try {
-        const fileHandle = await folder.getFileHandle(filename, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(JSON.stringify(saveData, null, 2));
-        await writable.close();
-
-        await cleanupOldSaves(folder);
-        console.log('Game saved:', filename);
-        return true;
-    } catch (e) {
-        console.error('Save failed:', e);
-        return false;
-    }
-}
-
-async function cleanupOldSaves(folder) {
-    const files = [];
-    try {
-        for await (const [name, handle] of folder.entries()) {
-            if (name.startsWith('save_') && name.endsWith('.json')) {
-                files.push({ name, handle });
-            }
-        }
-        files.sort((a, b) => b.name.localeCompare(a.name));
-        const toDelete = files.slice(MAX_SAVES);
-        for (const f of toDelete) {
-            try { await folder.removeEntry(f.name); } catch (e) {}
-        }
-    } catch (e) {
-        console.warn('Cleanup failed:', e);
-    }
-}
-
-async function loadGame() {
-    const folder = await getSavFolder();
-    if (!folder) return false;
-
-    const files = [];
-    try {
-        for await (const [name, handle] of folder.entries()) {
-            if (name.startsWith('save_') && name.endsWith('.json')) {
-                files.push({ name, handle });
-            }
-        }
-    } catch (e) {
-        console.warn('Failed to list saves:', e);
-        return false;
-    }
-
-    if (files.length === 0) return false;
-
-    files.sort((a, b) => b.name.localeCompare(a.name));
-
-    try {
-        const file = await files[0].handle.getFile();
-        const text = await file.text();
-        const data = JSON.parse(text);
-
-        balance = data.balance ?? 500;
-        inventory = data.inventory ?? [];
-        portfolio = data.portfolio ?? {};
-        passiveIncomePerSec = data.passiveIncomePerSec ?? 0;
-        activeLoans = data.activeLoans ?? [];
-        startups = data.startups ?? [];
-        startupPortfolio = data.startupPortfolio ?? {};
-        chatLog = data.chatLog ?? [];
-        godMode = data.godMode ?? false;
-        cpsMultiplier = data.cpsMultiplier ?? 1;
-        hasRedirected = data.hasRedirected ?? false;
-
-        console.log('Game loaded from:', files[0].name);
-        return true;
-    } catch (e) {
-        console.error('Load failed:', e);
-        return false;
-    }
-}
-
-// Loan State
-let activeLoans = [];
-let loansData = [
-  { id: 'small', name: 'Starter Loan', amount: 1000, interestRate: 0.05, durationSec: 60, description: 'Small loan, quick repayment.' },
-  { id: 'medium', name: 'Business Loan', amount: 10000, interestRate: 0.10, durationSec: 120, description: 'For growing traders.' },
-  { id: 'large', name: 'Corporate Loan', amount: 100000, interestRate: 0.15, durationSec: 180, description: 'High risk, high reward.' },
-  { id: 'mega', name: 'Tycoon Loan', amount: 1000000, interestRate: 0.20, durationSec: 300, description: 'For the ambitious tycoon.' },
-  { id: 'divine', name: 'Divine Loan', amount: 100000000, interestRate: 0.25, durationSec: 600, description: 'Borrow from the gods themselves.' },
-  { id: 'cosmic', name: 'Cosmic Loan', amount: 5000000000, interestRate: 0.30, durationSec: 900, description: 'Funded by intergalactic banks.' },
-  { id: 'multiverse', name: 'Multiverse Loan', amount: 100000000000, interestRate: 0.35, durationSec: 1200, description: 'Borrow from alternate versions of yourself.' },
-  { id: 'time', name: 'Time Loan', amount: 5000000000000, interestRate: 0.40, durationSec: 1800, description: 'Loan from your future self. High stakes.' },
-  { id: 'infinity', name: 'Infinity Loan', amount: 100000000000000, interestRate: 0.50, durationSec: 3600, description: 'Infinite money, infinite risk.' },
-  { id: 'void', name: 'Void Loan', amount: 10000000000000000, interestRate: 0.75, durationSec: 7200, description: 'Borrowed from the void itself.' }
-];
-
-// Startup State
-let startups = [];
-let startupPortfolio = {};
-
-// Chat State
-let chatLog = [];
-
-// Admin State
-let godMode = false;
-let cpsMultiplier = 1;
-
-// DOM Elements
-const views = {
-    start: document.getElementById('start-screen'),
-    game: document.getElementById('game-screen'),
-    gameOver: document.getElementById('game-over-screen')
+// --- 1. STATE MANAGEMENT ---
+const State = {
+    version: '1.2.0',
+    balance: 500,
+    inventory: [],
+    portfolio: {},
+    passiveIncomePerSec: 0,
+    activeLoans: [],
+    startups: [],
+    startupPortfolio: {},
+    godMode: false,
+    cpsMultiplier: 1,
+    activeEvent: null,
+    cryptoWalletName: null,
+    myCoin: null,
+    cryptos: [
+        { id: 'btc', name: 'Bitcoin', ticker: 'BTC', price: 50000, history: [50000], volatility: 0.05 },
+        { id: 'eth', name: 'Ethereum', ticker: 'ETH', price: 3000, history: [3000], volatility: 0.06 },
+        { id: 'doge', name: 'Dogecoin', ticker: 'DOGE', price: 100, history: [100], volatility: 0.15 },
+        { id: 'rbx', name: 'RobuxCoin', ticker: 'RBX', price: 500, history: [500], volatility: 0.08 }
+    ],
+    cryptoPortfolio: {},
+    chatLog: [],
+    activeAuctions: [],
+    mutatedItems: []
 };
 
-const adminPanel = document.getElementById('admin-panel');
-const balanceEl = document.getElementById('player-balance');
-const cpsEl = document.getElementById('passive-income-display');
+// Ephemeral runtime state
+const Runtime = {
+    intervals: {},
+    isInitialized: false,
+    isAdminAuthenticated: false,
+    isPaused: false,
+    transactionLock: false,
+    lastChatTime: 0,
+    saveTimeout: null,
+    bankruptGraceTimer: 0
+};
 
-const marketGrid = document.getElementById('market-grid');
-const investmentsGrid = document.getElementById('investments-grid');
-const inventoryGrid = document.getElementById('inventory-grid');
-const portfolioList = document.getElementById('portfolio-list');
-const emptyInvMsg = document.getElementById('empty-inventory-msg');
-const loansGrid = document.getElementById('loans-grid');
-const activeLoansSection = document.getElementById('active-loans-section');
-const activeLoansList = document.getElementById('active-loans-list');
+// --- 2. CONFIG & DOM ---
+const Config = {
+    MAX_INVENTORY: 100,
+    MAX_CHAT: 50,
+    CHAT_COOLDOWN: 1500,
+    MAX_LOAN_CAP: 5,
+    MAX_CRYPTO_PRICE: 1000000000,
+    MIN_CRYPTO_PRICE: 1,
+    DIAMOND_THRESHOLD: 1_000_000_000,
+    BAG_THRESHOLD: 10_000_000_000
+};
 
-const startupsGrid = document.getElementById('startups-grid');
-const startupPortfolioList = document.getElementById('startup-portfolio-list');
-const chatContainer = document.getElementById('chat-container');
-const chatInput = document.getElementById('chat-input');
-const chatSendBtn = document.getElementById('chat-send-btn');
-
-const tabBtns = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
-
-// Initial setup
-async function init() {
-    renderMarket();
-    renderInvestments();
-    renderLoans();
-    renderStartups();
-    renderChat();
-    populateAdminDropdowns();
-    updateUI();
-    startLoanTimer();
-    startBankruptCheck();
-}
-
-// Tabs Logic
-tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        tabBtns.forEach(b => b.classList.remove('active'));
-        tabContents.forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab).classList.add('active');
-    });
-});
-
-// Logic Functions
-function buyItem(itemObj) {
-    if (balance >= itemObj.price) {
-        updateBalance(-itemObj.price);
-        const markup = (Math.random() * 0.4 + 1.1).toFixed(2);
-        const sellValue = Math.round(itemObj.price * markup);
-        inventory.push({
-            ...itemObj,
-            uid: Date.now() + Math.random().toString(),
-            sellPrice: sellValue
-        });
-        updateUI();
-        saveGame();
+const DOM = {
+    views: {
+        start: document.getElementById('start-screen'),
+        game: document.getElementById('game-screen'),
+        gameOver: document.getElementById('game-over-screen')
+    },
+    adminPanel: document.getElementById('admin-panel'),
+    balanceEl: document.getElementById('player-balance'),
+    cpsEl: document.getElementById('passive-income-display'),
+    grids: {
+        market: document.getElementById('market-grid'),
+        investments: document.getElementById('investments-grid'),
+        inventory: document.getElementById('inventory-grid'),
+        loans: document.getElementById('loans-grid'),
+        activeLoans: document.getElementById('active-loans-list'),
+        startups: document.getElementById('startups-grid'),
+        cryptos: document.getElementById('cryptos-grid'),
+        auctions: document.getElementById('auctions-container')
+    },
+    lists: {
+        portfolio: document.getElementById('portfolio-list'),
+        startupPortfolio: document.getElementById('startup-portfolio-list')
+    },
+    misc: {
+        emptyInvMsg: document.getElementById('empty-inventory-msg'),
+        activeLoansSection: document.getElementById('active-loans-section'),
+        chatContainer: document.getElementById('chat-container')
     }
-}
+};
 
-function sellItem(uid) {
-    const itemIndex = inventory.findIndex(i => i.uid === uid);
-    if (itemIndex !== -1) {
-        const item = inventory[itemIndex];
-        updateBalance(item.sellPrice);
-        inventory.splice(itemIndex, 1);
-        updateUI();
-        saveGame();
+// Loan Data
+const loansData = [
+    { id: 'small', name: 'Starter Loan', amount: 1000, interestRate: 0.05, durationSec: 60, description: 'Small loan.' },
+    { id: 'medium', name: 'Business Loan', amount: 10000, interestRate: 0.10, durationSec: 120, description: 'For growing traders.' },
+    { id: 'large', name: 'Corporate Loan', amount: 100000, interestRate: 0.15, durationSec: 180, description: 'High risk.' },
+    { id: 'mega', name: 'Tycoon Loan', amount: 1000000, interestRate: 0.20, durationSec: 300, description: 'Tycoon ambitious.' },
+    { id: 'divine', name: 'Divine Loan', amount: 100000000, interestRate: 0.25, durationSec: 600, description: 'From the gods.' }
+];
+
+// --- 3. UTILITIES ---
+const Utils = {
+    sanitizeHTML(str) {
+        if (!str) return '';
+        const temp = document.createElement('div');
+        temp.textContent = str;
+        return temp.innerHTML;
+    },
+    formatCurrency(amount) {
+        if (!Number.isFinite(amount)) return 'R$ 0';
+        if (amount >= Config.BAG_THRESHOLD) return `${(amount / Config.BAG_THRESHOLD).toLocaleString(undefined, { maximumFractionDigits: 2 })} 💰`;
+        if (amount >= Config.DIAMOND_THRESHOLD) return `${(amount / Config.DIAMOND_THRESHOLD).toLocaleString(undefined, { maximumFractionDigits: 2 })} 💎`;
+        return `R$ ${Math.round(amount).toLocaleString()}`;
+    },
+    createElement(tag, classes = [], innerHTML = '') {
+        const el = document.createElement(tag);
+        const validClasses = classes.filter(c => c && c.trim() !== '');
+        if (validClasses.length) el.classList.add(...validClasses);
+        if (innerHTML) el.innerHTML = innerHTML;
+        return el;
+    },
+    clamp(val, min, max) {
+        return Math.max(min, Math.min(val, max));
     }
-}
+};
 
-function buyInvestment(investObj) {
-    if (balance >= investObj.price) {
-        updateBalance(-investObj.price);
-        if (!portfolio[investObj.id]) portfolio[investObj.id] = 0;
-        portfolio[investObj.id] += 1;
-        recalculatePassiveIncome();
-        updateUI();
-        saveGame();
-    }
-}
-
-function recalculatePassiveIncome() {
-    passiveIncomePerSec = 0;
-    investmentsData.forEach(inv => {
-        if (portfolio[inv.id]) passiveIncomePerSec += inv.cps * portfolio[inv.id];
-    });
-    passiveIncomePerSec += getStartupIncome();
-    let totalCPS = passiveIncomePerSec * cpsMultiplier;
-    cpsEl.textContent = `+${formatCurrency(totalCPS)} /sec`;
-
-    if ((passiveIncomePerSec > 0 || activeLoans.length > 0) && !incomeInterval) {
-        incomeInterval = setInterval(() => {
-            if (views.game.classList.contains('active')) {
-                let tickIncome = passiveIncomePerSec * cpsMultiplier;
-                processLoans();
-                updateBalance(tickIncome, false);
-                updateUI();
+// --- 4. SAVE SYSTEM ---
+const SaveSystem = {
+    save() {
+        if (Runtime.saveTimeout) clearTimeout(Runtime.saveTimeout);
+        Runtime.saveTimeout = setTimeout(() => {
+            try {
+                const dataStr = JSON.stringify(State);
+                localStorage.setItem('antiAmazonTycoonSave', dataStr);
+                localStorage.setItem('antiAmazonTycoonSave_backup', dataStr);
+            } catch (e) {
+                console.error("Save failed", e);
             }
         }, 1000);
-    }
-}
+    },
+    load() {
+        let raw = localStorage.getItem('antiAmazonTycoonSave');
+        if (!raw) raw = localStorage.getItem('antiAmazonTycoonSave_backup');
+        if (!raw) return false;
 
-function updateBalance(amount, animate = true) {
-    balance += amount;
-    balanceEl.textContent = formatCurrency(balance);
-    if (amount > 0 && animate) {
-        balanceEl.classList.remove('pulse');
-        void balanceEl.offsetWidth;
-        balanceEl.classList.add('pulse');
-    }
-}
-
-function checkGameOver() {
-    const cheapestPrice = Math.min(...itemsData.map(i => i.price));
-    if (balance < cheapestPrice && inventory.length === 0 && passiveIncomePerSec === 0 && activeLoans.length === 0) {
-        switchView('gameOver');
-    }
-}
-
-function checkDiamondRedirect() {
-    if (balance >= DIAMOND_THRESHOLD && !hasRedirected) {
-        hasRedirected = true;
-        saveGame().then(() => {
-            addChatMessage('System', '🎬 You reached 1 💎! Redirecting to final cut...', true);
-            setTimeout(() => {
-                window.location.href = FINAL_CUT_URL;
-            }, 1500);
-        });
-    }
-}
-
-// Loan Functions
-function takeLoan(loanObj) {
-    if (!godMode && activeLoans.find(l => l.id === loanObj.id && !l.repaid)) return;
-    const totalOwed = Math.round(loanObj.amount * (1 + loanObj.interestRate));
-    const loanInstance = {
-        ...loanObj,
-        uid: Date.now() + Math.random().toString(),
-        totalOwed: totalOwed,
-        remaining: totalOwed,
-        takenAt: Date.now(),
-        elapsed: 0,
-        repaid: false
-    };
-    activeLoans.push(loanInstance);
-    updateBalance(loanObj.amount);
-    recalculatePassiveIncome();
-    updateUI();
-    saveGame();
-}
-
-function repayLoan(uid) {
-    const loanIndex = activeLoans.findIndex(l => l.uid === uid);
-    if (loanIndex === -1) return;
-    const loan = activeLoans[loanIndex];
-    if (loan.repaid) return;
-    if (godMode || balance >= loan.remaining) {
-        updateBalance(-loan.remaining);
-        activeLoans.splice(loanIndex, 1);
-        recalculatePassiveIncome();
-        updateUI();
-        saveGame();
-    }
-}
-
-function processLoans() {
-    activeLoans.forEach(loan => {
-        if (loan.repaid) return;
-        loan.elapsed += 1;
-        if (loan.elapsed >= loan.durationSec) {
-            loan.remaining = Math.round(loan.remaining * 2);
-            loan.elapsed = 0;
-            loan.durationSec = Math.round(loan.durationSec * 1.5);
+        try {
+            const data = JSON.parse(raw);
+            if (!data.version) return false;
+            Object.assign(State, data);
+            State.cryptos = data.cryptos || State.cryptos;
+            State.balance = Number.isFinite(data.balance) ? data.balance : 500;
+            return true;
+        } catch (e) {
+            console.error("Load failed, corrupted save", e);
+            return false;
         }
-    });
-}
-
-// Startup Functions
-function createStartup(name) {
-    if (!name || name.trim().length === 0) return;
-    const startup = {
-        id: 'startup_' + Date.now(),
-        name: name.trim(),
-        totalInvested: 0,
-        sharePrice: 1000,
-        cpsPerShare: 2,
-        createdAt: Date.now()
-    };
-    startups.push(startup);
-    addChatMessage('System', `New startup "${startup.name}" has been founded! Invest now!`, true);
-    renderStartups();
-    updateUI();
-    saveGame();
-}
-
-function investInStartup(startupId, shares) {
-    const startup = startups.find(s => s.id === startupId);
-    if (!startup || shares <= 0) return;
-    const cost = shares * startup.sharePrice;
-    if (balance < cost) return;
-    updateBalance(-cost);
-    startup.totalInvested += cost;
-    if (!startupPortfolio[startupId]) startupPortfolio[startupId] = 0;
-    startupPortfolio[startupId] += shares;
-    startup.sharePrice = Math.round(startup.sharePrice * 1.05);
-    startup.cpsPerShare = Math.round(startup.cpsPerShare * 1.02);
-    recalculatePassiveIncome();
-    renderStartups();
-    updateUI();
-    saveGame();
-}
-
-function donateToStartup(startupId, amount) {
-    const startup = startups.find(s => s.id === startupId);
-    if (!startup || amount <= 0) return;
-    if (balance < amount) return;
-    updateBalance(-amount);
-    startup.totalInvested += amount;
-    const boost = Math.floor(amount / 1000);
-    startup.cpsPerShare += boost;
-    addChatMessage('System', `Someone donated ${formatCurrency(amount)} to "${startup.name}"! CPS boosted!`, true);
-    recalculatePassiveIncome();
-    renderStartups();
-    updateUI();
-    saveGame();
-}
-
-function getStartupIncome() {
-    let income = 0;
-    startups.forEach(s => {
-        const shares = startupPortfolio[s.id] || 0;
-        if (shares > 0) income += s.cpsPerShare * shares;
-    });
-    return income;
-}
-
-function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
-    const actualSender = isAdmin ? 'Admin' : sender;
-    chatLog.push({ sender: actualSender, message, isSystem, time: new Date().toLocaleTimeString() });
-    if (chatLog.length > 100) chatLog.shift();
-    renderChat();
-}
-
-function renderChat() {
-    if (!chatContainer) return;
-    chatContainer.innerHTML = chatLog.map(msg => {
-        const isAdmin = msg.sender === 'Admin';
-        const checkmark = isAdmin ? '<span class="admin-checkmark">✅</span>' : '';
-        const systemClass = msg.isSystem ? 'chat-system' : '';
-        const adminClass = isAdmin ? 'chat-admin' : '';
-        return `<div class="chat-message ${systemClass} ${adminClass}"><span class="chat-time">[${msg.time}]</span> <b>${msg.sender}${checkmark}:</b> ${msg.message}</div>`;
-    }).join('');
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-function sendChatMessage() {
-    if (!chatInput) return;
-    const text = chatInput.value.trim();
-    if (!text) return;
-    if (text.startsWith('/')) processAdminCommand(text);
-    else addChatMessage('Player', text);
-    chatInput.value = '';
-}
-
-function populateAdminDropdowns() {
-    const itemSelect = document.getElementById('admin-item-select');
-    const investSelect = document.getElementById('admin-invest-select');
-    if (itemSelect) itemSelect.innerHTML = itemsData.map(item => `<option value="${item.id}">${item.name} (${formatCurrency(item.price)})</option>`).join('');
-    if (investSelect) investSelect.innerHTML = investmentsData.map(inv => `<option value="${inv.id}">${inv.name} (${formatCurrency(inv.price)})</option>`).join('');
-}
-
-function adminGiveItem(itemId) {
-    const item = itemsData.find(i => i.id === itemId);
-    if (!item) return;
-    const markup = (Math.random() * 0.4 + 1.1).toFixed(2);
-    const sellValue = Math.round(item.price * markup);
-    inventory.push({ ...item, uid: Date.now() + Math.random().toString(), sellPrice: sellValue });
-    updateUI();
-    saveGame();
-}
-
-function adminGiveInvestment(invId) {
-    const inv = investmentsData.find(i => i.id === invId);
-    if (!inv) return;
-    if (!portfolio[inv.id]) portfolio[inv.id] = 0;
-    portfolio[inv.id] += 1;
-    recalculatePassiveIncome();
-    updateUI();
-    saveGame();
-}
-
-function adminAddFunds(amount) { updateBalance(amount); updateUI(); saveGame(); }
-function adminSetMultiplier(val) { cpsMultiplier = Math.max(1, val || 1); recalculatePassiveIncome(); updateUI(); saveGame(); }
-
-function toggleGodMode() {
-    godMode = !godMode;
-    const btn = document.getElementById('btn-admin-god');
-    if (btn) btn.textContent = godMode ? 'God Mode: ON' : 'God Mode: OFF';
-    document.body.style.boxShadow = godMode ? 'inset 0 0 100px rgba(255, 215, 0, 0.2)' : 'none';
-}
-
-function processAdminCommand(text) {
-    const parts = text.slice(1).split(' ');
-    const cmd = parts[0].toLowerCase();
-    const arg1 = parts[1];
-    switch (cmd) {
-        case 'givemoney': case 'add': { const amount = parseInt(arg1); if (!isNaN(amount)) { adminAddFunds(amount); addChatMessage('Admin', `Gave ${formatCurrency(amount)}`, false, true); } else addChatMessage('System', 'Usage: /givemoney <amount>', true); break; }
-        case 'setmoney': case 'set': { const amount = parseInt(arg1); if (!isNaN(amount) && amount >= 0) { balance = amount; updateUI(); addChatMessage('Admin', `Set balance to ${formatCurrency(amount)}`, false, true); } else addChatMessage('System', 'Usage: /setmoney <amount>', true); break; }
-        case 'giveitem': { if (arg1) { adminGiveItem(arg1); addChatMessage('Admin', `Gave item ${arg1}`, false, true); } else addChatMessage('System', 'Usage: /giveitem <item_id>', true); break; }
-        case 'giveinvest': { if (arg1) { adminGiveInvestment(arg1); addChatMessage('Admin', `Gave investment ${arg1}`, false, true); } else addChatMessage('System', 'Usage: /giveinvest <invest_id>', true); break; }
-        case 'givestartup': { if (arg1) { const startup = startups.find(s => s.id === arg1); if (startup) { if (!startupPortfolio[arg1]) startupPortfolio[arg1] = 0; startupPortfolio[arg1] += 1; recalculatePassiveIncome(); updateUI(); addChatMessage('Admin', `Gave 1 share of ${startup.name}`, false, true); } else addChatMessage('System', `Startup ${arg1} not found`, true); } else addChatMessage('System', 'Usage: /givestartup <startup_id>', true); break; }
-        case 'godmode': { toggleGodMode(); addChatMessage('Admin', `God Mode ${godMode ? 'ON' : 'OFF'}`, false, true); break; }
-        case 'reset': { resetGame(); switchView('start'); addChatMessage('Admin', 'Game reset', false, true); break; }
-        case 'setcps': { const val = parseFloat(arg1); if (!isNaN(val)) { adminSetMultiplier(val); addChatMessage('Admin', `CPS Multiplier set to ${val}x`, false, true); } else addChatMessage('System', 'Usage: /setcps <multiplier>', true); break; }
-        case 'clearloans': { activeLoans = []; recalculatePassiveIncome(); updateUI(); addChatMessage('Admin', 'All loans cleared', false, true); saveGame(); break; }
-        case 'createstartup': { const name = parts.slice(1).join(' '); if (name) { createStartup(name); addChatMessage('Admin', `Created startup "${name}"`, false, true); } else addChatMessage('System', 'Usage: /createstartup <name>', true); break; }
-        case 'say': { const msg = parts.slice(1).join(' '); if (msg) addChatMessage('Admin', msg, false, true); else addChatMessage('System', 'Usage: /say <message>', true); break; }
-        case 'credits': showCredits(); break;
-        case 'shop': { addChatMessage('System', '🛒 Redirecting to shop...', true); setTimeout(() => { window.location.href = SHOP_URL; }, 1000); break; }
-        case 'help': addChatMessage('System', 'Commands: /givemoney, /setmoney, /giveitem, /giveinvest, /givestartup, /godmode, /reset, /setcps, /clearloans, /createstartup, /say, /credits, /shop', true); break;
-        default: addChatMessage('System', `Unknown command: ${cmd}. Type /help for list.`, true);
-    }
-}
-
-// Rendering
-function renderMarket() {
-    marketGrid.innerHTML = '';
-    itemsData.forEach(item => {
-        const card = document.createElement('div');
-        const canAfford = balance >= item.price;
-        card.className = `item-card ${canAfford ? 'affordable' : ''}`;
-        const imageHTML = item.image ? `<img src="${item.image}" alt="${item.name}">` : `<div class="no-image">📦</div>`;
-        card.innerHTML = `${imageHTML}<div class="item-name">${item.name}</div><div class="item-price">${formatCurrency(item.price)}</div><button class="action-btn buy-btn" ${!canAfford ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Buy Item</button>`;
-        card.querySelector('.buy-btn').addEventListener('click', () => buyItem(item));
-        marketGrid.appendChild(card);
-    });
-}
-
-function renderInvestments() {
-    investmentsGrid.innerHTML = '';
-    investmentsData.forEach(inv => {
-        const card = document.createElement('div');
-        const canAfford = balance >= inv.price;
-        const owned = portfolio[inv.id] || 0;
-        card.className = `invest-card ${canAfford ? 'affordable' : ''}`;
-        card.innerHTML = `<div class="invest-info"><h3>${inv.name} (Owned: ${owned})</h3><p>${inv.description}</p><div class="invest-cps">Yields: +${formatCurrency(inv.cps)} /sec</div></div><div class="invest-action"><div class="item-price">Cost: ${formatCurrency(inv.price)}</div><button class="action-btn buy-btn" style="margin-top: 0;" ${!canAfford ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Invest</button></div>`;
-        card.querySelector('.buy-btn').addEventListener('click', () => buyInvestment(inv));
-        investmentsGrid.appendChild(card);
-    });
-}
-
-function renderInventory() {
-    inventoryGrid.innerHTML = '';
-    if (inventory.length === 0) emptyInvMsg.classList.remove('hidden');
-    else {
-        emptyInvMsg.classList.add('hidden');
-        [...inventory].reverse().forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'item-card';
-            const imageHTML = item.image ? `<img src="${item.image}" alt="${item.name}">` : `<div class="no-image" style="height:80px; font-size:2rem;">📦</div>`;
-            card.innerHTML = `${imageHTML}<div class="item-name">${item.name}</div><div class="resell-value">Value: ${formatCurrency(item.sellPrice)}</div><button class="action-btn sell-btn">Sell</button>`;
-            card.querySelector('.sell-btn').addEventListener('click', () => sellItem(item.uid));
-            inventoryGrid.appendChild(card);
-        });
-    }
-}
-
-function renderPortfolio() {
-    portfolioList.innerHTML = '';
-    let hasPortfolio = false;
-    investmentsData.forEach(inv => {
-        const owned = portfolio[inv.id] || 0;
-        if (owned > 0) {
-            hasPortfolio = true;
-            const el = document.createElement('div');
-            el.className = 'portfolio-item';
-            el.innerHTML = `<span>${inv.name} (x${owned})</span><span class="robux">+${formatCurrency(inv.cps * owned * cpsMultiplier)}/s</span>`;
-            portfolioList.appendChild(el);
+    },
+    hardReset() {
+        if (confirm('Hard reset the entire game?')) {
+            localStorage.removeItem('antiAmazonTycoonSave');
+            localStorage.removeItem('antiAmazonTycoonSave_backup');
+            location.reload();
         }
-    });
-    if (!hasPortfolio) portfolioList.innerHTML = '<div style="color:var(--text-secondary); font-style:italic;">No investments yet.</div>';
-}
-
-function renderStartups() {
-    if (!startupsGrid) return;
-    startupsGrid.innerHTML = '';
-    if (startups.length === 0) startupsGrid.innerHTML = '<div style="color:var(--text-secondary); font-style:italic; text-align:center;">No startups yet. Create one below!</div>';
-    else {
-        startups.forEach(startup => {
-            const card = document.createElement('div');
-            const shares = startupPortfolio[startup.id] || 0;
-            const canAfford = balance >= startup.sharePrice;
-            card.className = `startup-card ${canAfford ? 'affordable' : ''}`;
-            card.innerHTML = `<div class="startup-info"><h3>${startup.name}</h3><p>Total Invested: ${formatCurrency(startup.totalInvested)}</p><div class="startup-cps">CPS/Share: +${formatCurrency(startup.cpsPerShare)}</div><div class="startup-shares">Your Shares: ${shares}</div></div><div class="startup-action"><div class="item-price">Share: ${formatCurrency(startup.sharePrice)}</div><div class="startup-btns"><button class="action-btn buy-btn startup-invest-btn" ${!canAfford ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Buy 1 Share</button></div><div class="donate-row"><input type="number" class="donate-input" placeholder="Amount" min="1"><button class="action-btn donate-btn">Donate</button></div>`;
-            const investBtn = card.querySelector('.startup-invest-btn');
-            if (canAfford) investBtn.addEventListener('click', () => investInStartup(startup.id, 1));
-            const donateBtn = card.querySelector('.donate-btn');
-            const donateInput = card.querySelector('.donate-input');
-            donateBtn.addEventListener('click', () => { const amount = parseInt(donateInput.value); if (!isNaN(amount) && amount > 0) { donateToStartup(startup.id, amount); donateInput.value = ''; } });
-            startupsGrid.appendChild(card);
-        });
     }
-    if (startupPortfolioList) {
-        startupPortfolioList.innerHTML = '';
-        let hasStartups = false;
-        startups.forEach(startup => {
-            const shares = startupPortfolio[startup.id] || 0;
-            if (shares > 0) {
-                hasStartups = true;
-                const el = document.createElement('div');
-                el.className = 'portfolio-item';
-                el.innerHTML = `<span>${startup.name} (x${shares})</span><span class="robux">+${formatCurrency(startup.cpsPerShare * shares * cpsMultiplier)}/s</span>`;
-                startupPortfolioList.appendChild(el);
+};
+
+// --- 5. UI CONTROLLER ---
+const UI = {
+    switchView(v) {
+        Object.values(DOM.views).forEach(el => {
+            if (el) {
+                el.classList.add('hidden');
+                el.classList.remove('active');
             }
         });
-        if (!hasStartups) startupPortfolioList.innerHTML = '<div style="color:var(--text-secondary); font-style:italic;">No startup shares yet.</div>';
-    }
-}
-
-function renderLoans() {
-    if (!loansGrid) return;
-    loansGrid.innerHTML = '';
-    loansData.forEach(loan => {
-        const card = document.createElement('div');
-        const hasActive = activeLoans.find(l => l.id === loan.id && !l.repaid);
-        const canTake = !hasActive || godMode;
-        card.className = `loan-card ${canTake ? '' : 'disabled'}`;
-        card.innerHTML = `<div class="loan-info"><h3>${loan.name}</h3><p>${loan.description}</p><div class="loan-details"><span>Amount: <b>${formatCurrency(loan.amount)}</b></span><span>Interest: <b>${(loan.interestRate * 100).toFixed(0)}%</b></span><span>Duration: <b>${loan.durationSec}s</b></span></div></div><div class="loan-action"><div class="loan-total">Repay: ${formatCurrency(Math.round(loan.amount * (1 + loan.interestRate)))}</div><button class="action-btn loan-btn" ${!canTake ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>${hasActive ? 'Active' : 'Take Loan'}</button></div>`;
-        if (canTake) card.querySelector('.loan-btn').addEventListener('click', () => takeLoan(loan));
-        loansGrid.appendChild(card);
-    });
-}
-
-function renderActiveLoans() {
-    if (!activeLoansList || !activeLoansSection) return;
-    activeLoansList.innerHTML = '';
-    if (activeLoans.length === 0) { activeLoansSection.style.display = 'none'; return; }
-    activeLoansSection.style.display = 'block';
-    activeLoans.forEach(loan => {
-        const el = document.createElement('div');
-        el.className = 'active-loan-item';
-        const canRepay = godMode || balance >= loan.remaining;
-        el.innerHTML = `<div class="active-loan-info"><span class="loan-name">${loan.name}</span><span class="loan-timer">⏱ ${loan.elapsed}s / ${loan.durationSec}s</span><span class="loan-remaining">Owed: <b>${formatCurrency(loan.remaining)}</b></span></div><button class="action-btn repay-btn" ${!canRepay ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>Repay</button>`;
-        el.querySelector('.repay-btn').addEventListener('click', () => repayLoan(loan.uid));
-        activeLoansList.appendChild(el);
-    });
-}
-
-function updateUI() {
-    balanceEl.textContent = formatCurrency(balance);
-    renderMarket();
-    renderInvestments();
-    renderLoans();
-    renderStartups();
-    renderActiveLoans();
-    renderInventory();
-    renderPortfolio();
-    renderChat();
-    checkDiamondRedirect();
-    setTimeout(checkGameOver, 100);
-}
-
-function switchView(viewName) {
-    Object.values(views).forEach(v => {
-        v.classList.remove('active');
-        v.classList.add('hidden');
-    });
-    
-    if (views[viewName]) {
-        views[viewName].classList.remove('hidden');
-        views[viewName].classList.add('active');
-    }
-}
-
-function resetGame() {
-    balance = 500;
-    inventory = [];
-    portfolio = {};
-    passiveIncomePerSec = 0;
-    activeLoans = [];
-    startups = [];
-    startupPortfolio = {};
-    chatLog = [];
-    godMode = false;
-    cpsMultiplier = 1;
-    hasRedirected = false;
-    if (incomeInterval) { clearInterval(incomeInterval); incomeInterval = null; }
-    if (loanTimerInterval) { clearInterval(loanTimerInterval); loanTimerInterval = null; }
-    if (bankruptCheckInterval) { clearInterval(bankruptCheckInterval); bankruptCheckInterval = null; }
-    updateUI();
-    addChatMessage('System', 'Game reset.', true);
-}
-
-function toggleAdminPanel() {
-    if (!adminPanel) return;
-    adminPanel.classList.toggle('hidden');
-}
-
-function highRiskTrade() {
-    const input = document.getElementById('trade-amount');
-    const resultEl = document.getElementById('trade-result');
-    if (!input || !resultEl) return;
-    const amount = parseInt(input.value);
-    if (isNaN(amount) || amount <= 0) {
-        resultEl.textContent = 'Enter a valid amount.';
-        resultEl.style.color = '#ff4757';
-        return;
-    }
-    if (balance < amount) {
-        resultEl.textContent = 'Insufficient funds!';
-        resultEl.style.color = '#ff4757';
-        return;
-    }
-    updateBalance(-amount, false);
-    const win = Math.random() < 0.45;
-    if (win) {
-        const multiplier = Math.random() * 2 + 1.5;
-        const winnings = Math.round(amount * multiplier);
-        updateBalance(winnings);
-        resultEl.textContent = `🎉 WIN! Traded ${formatCurrency(amount)} for ${formatCurrency(winnings)}!`;
-        resultEl.style.color = '#00ff9d';
-    } else {
-        resultEl.textContent = `💥 LOSS! Lost ${formatCurrency(amount)}.`;
-        resultEl.style.color = '#ff4757';
-    }
-    updateUI();
-    saveGame();
-}
-
-let loanTimerInterval = null;
-function startLoanTimer() {
-    if (loanTimerInterval) clearInterval(loanTimerInterval);
-    loanTimerInterval = setInterval(() => {
-        if (views.game && views.game.classList.contains('active')) {
-            renderActiveLoans();
+        if (DOM.views[v]) {
+            DOM.views[v].classList.remove('hidden');
+            DOM.views[v].classList.add('active');
         }
-    }, 1000);
-}
-
-let bankruptCheckInterval = null;
-function startBankruptCheck() {
-    if (bankruptCheckInterval) clearInterval(bankruptCheckInterval);
-    bankruptCheckInterval = setInterval(() => {
-        if (views.game && views.game.classList.contains('active')) {
-            checkGameOver();
+    },
+    updateBalance(animate = true) {
+        if (!DOM.balanceEl) return;
+        DOM.balanceEl.textContent = Utils.formatCurrency(State.balance);
+        if (animate) {
+            DOM.balanceEl.classList.remove('pulse');
+            void DOM.balanceEl.offsetWidth;
+            DOM.balanceEl.classList.add('pulse');
         }
-    }, 2000);
-}
+    },
+    updateCPS() {
+        if (DOM.cpsEl) DOM.cpsEl.textContent = `+${Utils.formatCurrency(State.passiveIncomePerSec * State.cpsMultiplier)} /sec`;
+    },
 
-// Update Leak Modal Logic
-let leakTimer = null;
-const leakModal = document.getElementById('update-leak-modal');
-const btnCloseLeak = document.getElementById('btn-close-leak');
+    renderGrid(container, data, renderer) {
+        if (!container) return;
+        const frag = document.createDocumentFragment();
+        data.forEach((item, index) => {
+            const node = renderer(item, index);
+            if (node) frag.appendChild(node);
+        });
+        container.innerHTML = '';
+        container.appendChild(frag);
+    },
 
-function showUpdateLeak() {
-    if (!leakModal) return;
-    leakModal.classList.remove('hidden');
-    leakModal.style.display = 'flex';
-    console.log('[Update Leak] Modal shown!');
-}
+    renderMarket() {
+        UI.renderGrid(DOM.grids.market, itemsData, item => {
+            let p = item.price;
+            if (item.mutationMultiplier) p = Math.round(p * item.mutationMultiplier);
+            const html = `
+                ${item.image ? `<img src="${item.image}">` : `<div class="no-image">📦</div>`}
+                <div class="item-name">${item.name}</div>
+                <div class="item-price">${Utils.formatCurrency(p)}</div>
+                <button class="action-btn buy-btn" data-action="buyItem" data-id="${item.id}" data-price="${p}">Buy</button>
+            `;
+            return Utils.createElement('div', ['item-card'], html);
+        });
+    },
 
-function hideUpdateLeak() {
-    if (!leakModal) return;
-    leakModal.classList.add('hidden');
-    leakModal.style.display = 'none';
-    console.log('[Update Leak] Modal hidden.');
-}
+    renderInvestments() {
+        UI.renderGrid(DOM.grids.investments, investmentsData, inv => {
+            return Utils.createElement('div', ['invest-card'], `
+                <div class="invest-info">
+                    <h3>${inv.name} (x${State.portfolio[inv.id] || 0})</h3>
+                    <p>${inv.description}</p>
+                    <div class="invest-cps">+${Utils.formatCurrency(inv.cps)}/s</div>
+                </div>
+                <div class="invest-action">
+                    <div class="item-price">${Utils.formatCurrency(inv.price)}</div>
+                    <button class="action-btn buy-btn" data-action="buyInvest" data-id="${inv.id}">Invest</button>
+                </div>
+            `);
+        });
+    },
 
-function startLeakTimer() {
-    if (leakTimer) clearTimeout(leakTimer);
-    console.log('[Update Leak] Timer started — modal will appear in 3 seconds...');
-    leakTimer = setTimeout(() => {
-        showUpdateLeak();
+    renderInventory() {
+        if (!DOM.grids.inventory) return;
+        if (State.inventory.length === 0) {
+            DOM.misc.emptyInvMsg.classList.remove('hidden');
+            DOM.grids.inventory.innerHTML = '';
+            return;
+        }
+        DOM.misc.emptyInvMsg.classList.add('hidden');
+        UI.renderGrid(DOM.grids.inventory, State.inventory, item => {
+            return Utils.createElement('div', ['item-card'], `
+                ${item.image ? `<img src="${item.image}">` : `<div class="no-image">📦</div>`}
+                <div class="item-name">${item.name}</div>
+                <div class="item-price">${Utils.formatCurrency(item.sellPrice)}</div>
+                <button class="action-btn sell-btn" data-action="sellItem" data-id="${item.uid}">Sell</button>
+            `);
+        });
+    },
+
+    renderLoans() {
+        UI.renderGrid(DOM.grids.loans, loansData, l => {
+            const active = State.activeLoans.find(x => x.id === l.id);
+            return Utils.createElement('div', ['loan-card', active ? 'disabled' : ''], `
+                <div class="loan-info"><h3>${l.name}</h3><p>Borrow ${Utils.formatCurrency(l.amount)}</p></div>
+                <button class="action-btn loan-btn" data-action="takeLoan" data-id="${l.id}" ${active ? 'disabled' : ''}>${active ? 'Active' : 'Take'}</button>
+            `);
+        });
+    },
+
+    renderActiveLoans() {
+        if (!DOM.grids.activeLoans) return;
+        if (State.activeLoans.length === 0) {
+            DOM.misc.activeLoansSection.classList.add('hidden');
+            return;
+        }
+        DOM.misc.activeLoansSection.classList.remove('hidden');
+        UI.renderGrid(DOM.grids.activeLoans, State.activeLoans, l => {
+            return Utils.createElement('div', ['active-loan-item'], `
+                <span>${l.name}: Owed ${Utils.formatCurrency(l.remaining)}</span>
+                <button class="action-btn repay-btn" data-action="repayLoan" data-id="${l.uid}">Repay</button>
+            `);
+        });
+    },
+
+    renderStartups() {
+        UI.renderGrid(DOM.grids.startups, State.startups, s => {
+            return Utils.createElement('div', ['startup-card'], `
+                <div class="startup-header-flex">
+                    <div class="startup-icon-box">🚀</div>
+                    <div class="startup-info">
+                        <h3>${s.name}</h3>
+                        <span class="startup-tier">Venture</span>
+                    </div>
+                </div>
+                <div class="startup-stats-grid">
+                    <div class="stat-box"><span class="stat-label">Shares</span><span class="stat-value">${State.startupPortfolio[s.id] || 0}</span></div>
+                    <div class="stat-box"><span class="stat-label">Div/Share</span><span class="stat-value text-green">+${Utils.formatCurrency(s.cpsPerShare)}/s</span></div>
+                    <div class="stat-box"><span class="stat-label">Total Div</span><span class="stat-value text-green">+${Utils.formatCurrency(s.cpsPerShare * (State.startupPortfolio[s.id] || 0))}/s</span></div>
+                </div>
+                <div class="startup-action">
+                    <div class="share-price-display">
+                        <span class="price-label">Share Price</span>
+                        <span class="price-value">${Utils.formatCurrency(s.sharePrice)}</span>
+                    </div>
+                    <button class="action-btn invest-btn" data-action="investStartup" data-id="${s.id}">Invest</button>
+                </div>
+            `);
+        });
+    },
+
+    renderCryptos() {
+        UI.renderGrid(DOM.grids.cryptos, State.cryptos, c => {
+            const owned = State.cryptoPortfolio[c.id] || 0;
+            return Utils.createElement('div', ['startup-card'], `
+                <div class="startup-header-flex">
+                    <div class="startup-icon-box crypto-icon">🪙</div>
+                    <div class="startup-info">
+                        <h3>${c.name} <span class="crypto-ticker">${c.ticker}</span></h3>
+                        <span class="startup-tier crypto-tier">Token</span>
+                    </div>
+                </div>
+                <div class="startup-stats-grid">
+                    <div class="stat-box"><span class="stat-label">Owned</span><span class="stat-value">${owned}</span></div>
+                    <div class="stat-box"><span class="stat-label">Value</span><span class="stat-value text-gold">${Utils.formatCurrency(c.price)}</span></div>
+                    <div class="stat-box"><span class="stat-label">Total</span><span class="stat-value text-gold">${Utils.formatCurrency(c.price * owned)}</span></div>
+                </div>
+                <div class="startup-action">
+                    <div class="startup-btns">
+                        <button class="action-btn buy-btn" data-action="buyCrypto" data-id="${c.id}">Buy</button>
+                        <button class="action-btn sell-btn" data-action="sellCrypto" data-id="${c.id}">Sell</button>
+                    </div>
+                </div>
+            `);
+        });
+    },
+
+    renderAuctions() {
+        UI.renderGrid(DOM.grids.auctions, State.activeAuctions, (a, i) => {
+            if (!a) return null;
+            return Utils.createElement('div', ['item-card'], `
+                <div class="item-name">${a.name}</div>
+                <div class="item-price">${Utils.formatCurrency(a.price)}</div>
+                <div class="auction-timer">${a.timeLeft}s</div>
+                <button class="action-btn buy-btn" data-action="bidAuction" data-index="${i}">Bid</button>
+            `);
+        });
+    },
+
+    renderPortfolio() {
+        if (!DOM.lists.portfolio) return;
+        let html = investmentsData.filter(i => State.portfolio[i.id]).map(i => `<div class="portfolio-item"><span>${i.name} (x${State.portfolio[i.id]})</span><span>+${Utils.formatCurrency(i.cps * State.portfolio[i.id])}/s</span></div>`).join('');
+        html += State.startups.filter(s => State.startupPortfolio[s.id]).map(s => `<div class="portfolio-item"><span>${s.name} (x${State.startupPortfolio[s.id]})</span><span>+${Utils.formatCurrency(s.cpsPerShare * State.startupPortfolio[s.id])}/s</span></div>`).join('');
+        DOM.lists.portfolio.innerHTML = html || '<p>No assets yet.</p>';
+    },
+
+    renderAll() {
+        this.updateBalance(false);
+        this.updateCPS();
+        this.renderMarket();
+        this.renderInvestments();
+        this.renderLoans();
+        this.renderActiveLoans();
+        this.renderInventory();
+        this.renderStartups();
+        this.renderCryptos();
+        this.renderAuctions();
+        this.renderPortfolio();
+    }
+};
+
+// --- 6. CORE ECONOMY ---
+const Economy = {
+    updateBalance(amount, animate = true) {
+        if (!Number.isFinite(amount) || Number.isNaN(amount)) return;
+        State.balance += amount;
+        State.balance = Math.max(0, State.balance);
+        UI.updateBalance(animate);
+    },
+
+    buyItem(id, actualPrice) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const itemObj = itemsData.find(x => x.id === id);
+        if (!itemObj) return (Runtime.transactionLock = false);
+
+        const price = actualPrice || itemObj.price;
+        if (price < 0) return (Runtime.transactionLock = false);
+
+        if (State.inventory.length >= Config.MAX_INVENTORY) {
+            Chat.addMessage('System', `Inventory full (${Config.MAX_INVENTORY} max).`, 'system');
+            return (Runtime.transactionLock = false);
+        }
+
+        if (State.godMode || State.balance >= price) {
+            if (!State.godMode) this.updateBalance(-price);
+            const newItem = {
+                ...itemObj,
+                uid: Date.now() + Math.random().toString(),
+                sellPrice: Math.round(itemObj.price * (Math.random() * 0.4 + 1.1))
+            };
+            State.inventory.push(newItem);
+            UI.renderInventory();
+            SaveSystem.save();
+        } else {
+            Chat.addMessage('System', `Insufficient balance to buy ${itemObj.name}.`, 'system');
+        }
+        Runtime.transactionLock = false;
+    },
+
+    sellItem(uid) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const idx = State.inventory.findIndex(i => i.uid === uid);
+        if (idx !== -1) {
+            const item = State.inventory[idx];
+            let price = item.sellPrice;
+            if (item.mutationMultiplier) price *= item.mutationMultiplier;
+            this.updateBalance(price);
+            State.inventory.splice(idx, 1);
+            UI.renderInventory();
+            SaveSystem.save();
+        }
+        Runtime.transactionLock = false;
+    },
+
+    buyInvest(id) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const inv = investmentsData.find(x => x.id === id);
+        if (!inv || inv.price < 0) return (Runtime.transactionLock = false);
+
+        if (State.godMode || State.balance >= inv.price) {
+            if (!State.godMode) this.updateBalance(-inv.price);
+            State.portfolio[inv.id] = (State.portfolio[inv.id] || 0) + 1;
+            this.recalculatePassiveIncome();
+            UI.renderInvestments();
+            UI.renderPortfolio();
+            SaveSystem.save();
+        } else {
+            Chat.addMessage('System', `Insufficient balance for ${inv.name}.`, 'system');
+        }
+        Runtime.transactionLock = false;
+    },
+
+    recalculatePassiveIncome() {
+        State.passiveIncomePerSec = 0;
+        investmentsData.forEach(inv => {
+            if (State.portfolio[inv.id]) State.passiveIncomePerSec += inv.cps * State.portfolio[inv.id];
+        });
+        State.startups.forEach(s => {
+            if (State.startupPortfolio[s.id]) State.passiveIncomePerSec += s.cpsPerShare * State.startupPortfolio[s.id];
+        });
+
+        UI.updateCPS();
+        this.manageIncomeInterval();
+    },
+
+    manageIncomeInterval() {
+        if (Runtime.intervals.income) {
+            clearInterval(Runtime.intervals.income);
+            Runtime.intervals.income = null;
+        }
+
+        if (State.passiveIncomePerSec > 0 || State.activeLoans.length > 0) {
+            Runtime.intervals.income = setInterval(() => {
+                if (Runtime.isPaused) return;
+
+                if (DOM.views.game.classList.contains('active')) {
+                    Loans.process();
+                    if (State.passiveIncomePerSec > 0) {
+                        this.updateBalance(State.passiveIncomePerSec * State.cpsMultiplier, false);
+                    }
+                    UI.renderActiveLoans();
+                }
+
+                if (State.passiveIncomePerSec === 0 && State.activeLoans.length === 0) {
+                    clearInterval(Runtime.intervals.income);
+                    Runtime.intervals.income = null;
+                }
+            }, 1000);
+        }
+    },
+
+    checkGameOver() {
+        if (State.godMode) return;
+        const cheapest = itemsData && itemsData.length > 0 ? Math.min(...itemsData.map(i => i.price)) : 0;
+
+        if (State.balance < cheapest && State.inventory.length === 0 && State.passiveIncomePerSec === 0 && State.activeLoans.length === 0) {
+            Runtime.bankruptGraceTimer++;
+            if (Runtime.bankruptGraceTimer > 3) UI.switchView('gameOver');
+        } else {
+            Runtime.bankruptGraceTimer = 0;
+        }
+    }
+};
+
+// --- 7. LOANS ---
+const Loans = {
+    take(id) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const loan = loansData.find(x => x.id === id);
+        if (!loan) return (Runtime.transactionLock = false);
+
+        if (State.activeLoans.length >= Config.MAX_LOAN_CAP) {
+            Chat.addMessage('System', `Max active loans reached (${Config.MAX_LOAN_CAP}).`, 'system');
+            return (Runtime.transactionLock = false);
+        }
+
+        if (State.activeLoans.find(l => l.id === loan.id) && !State.godMode) {
+            Chat.addMessage('System', `You already have an active ${loan.name}.`, 'system');
+            return (Runtime.transactionLock = false);
+        }
+
+        const total = Math.round(loan.amount * (1 + loan.interestRate));
+        State.activeLoans.push({ ...loan, uid: Date.now() + Math.random(), remaining: total, elapsed: 0 });
+        Economy.updateBalance(loan.amount);
+        Economy.recalculatePassiveIncome();
+        UI.renderLoans();
+        UI.renderActiveLoans();
+        SaveSystem.save();
+        Runtime.transactionLock = false;
+    },
+
+    repay(uid) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const idx = State.activeLoans.findIndex(l => l.uid === uid);
+        if (idx === -1) return (Runtime.transactionLock = false);
+        const l = State.activeLoans[idx];
+
+        if (State.godMode || State.balance >= l.remaining) {
+            if (!State.godMode) Economy.updateBalance(-l.remaining);
+            State.activeLoans.splice(idx, 1);
+            Economy.recalculatePassiveIncome();
+            UI.renderLoans();
+            UI.renderActiveLoans();
+            SaveSystem.save();
+        } else {
+            Chat.addMessage('System', 'Insufficient balance to repay loan.', 'system');
+        }
+        Runtime.transactionLock = false;
+    },
+
+    process() {
+        let changed = false;
+        State.activeLoans.forEach(l => {
+            l.elapsed++;
+            if (l.elapsed >= l.durationSec) {
+                const maxRemaining = l.amount * 5;
+                if (l.remaining < maxRemaining) {
+                    l.remaining = Math.min(Math.round(l.remaining * 1.2), maxRemaining);
+                    Chat.addMessage('System', `⚠️ Loan ${l.name} overdue! Interest increased.`, 'system');
+                    changed = true;
+                }
+                l.elapsed = 0;
+            }
+        });
+        if (changed) SaveSystem.save();
+    }
+};
+
+// --- 8. STARTUPS & CRYPTO ---
+const Markets = {
+    createStartup(name) {
+        if (!name) return;
+        const safeName = Utils.sanitizeHTML(name);
+        State.startups.push({ id: 's_' + Date.now(), name: safeName, totalInvested: 0, sharePrice: 1000, cpsPerShare: 5 });
+        Chat.addMessage('System', `🚀 Startup "${safeName}" founded!`, 'system');
+        UI.renderStartups();
+        SaveSystem.save();
+    },
+
+    investStartup(id) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const s = State.startups.find(x => x.id === id);
+        if (!s || (!State.godMode && State.balance < s.sharePrice)) {
+            Chat.addMessage('System', `Insufficient balance.`, 'system');
+            return (Runtime.transactionLock = false);
+        }
+
+        if (!State.godMode) Economy.updateBalance(-s.sharePrice);
+        State.startupPortfolio[id] = (State.startupPortfolio[id] || 0) + 1;
+
+        s.sharePrice = Math.round(s.sharePrice * 1.05);
+        s.cpsPerShare = Math.round(s.cpsPerShare * 1.02);
+
+        Economy.recalculatePassiveIncome();
+        UI.renderStartups();
+        UI.renderPortfolio();
+        SaveSystem.save();
+        Runtime.transactionLock = false;
+    },
+
+    startCrypto() {
+        if (Runtime.intervals.crypto) clearInterval(Runtime.intervals.crypto);
+        Runtime.intervals.crypto = setInterval(() => {
+            if (Runtime.isPaused) return;
+            State.cryptos.forEach(c => {
+                const change = (Math.random() * 0.2 - 0.1) * c.volatility;
+                c.price = Utils.clamp(Math.round(c.price * (1 + change)), Config.MIN_CRYPTO_PRICE, Config.MAX_CRYPTO_PRICE);
+            });
+            if (document.getElementById('crypto-tab')?.classList.contains('active')) UI.renderCryptos();
+        }, 3000);
+    },
+
+    buyCrypto(id) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const c = State.cryptos.find(x => x.id === id);
+        if (c && (State.godMode || State.balance >= c.price)) {
+            if (!State.godMode) Economy.updateBalance(-c.price);
+            State.cryptoPortfolio[id] = (State.cryptoPortfolio[id] || 0) + 1;
+            UI.renderCryptos();
+            SaveSystem.save();
+        } else {
+            Chat.addMessage('System', 'Insufficient balance.', 'system');
+        }
+        Runtime.transactionLock = false;
+    },
+
+    sellCrypto(id) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const c = State.cryptos.find(x => x.id === id);
+        if (c && State.cryptoPortfolio[id] > 0) {
+            State.cryptoPortfolio[id]--;
+            Economy.updateBalance(c.price);
+            UI.renderCryptos();
+            SaveSystem.save();
+        }
+        Runtime.transactionLock = false;
+    }
+};
+
+// --- 9. AUCTIONS ---
+const Auctions = {
+    start() {
+        if (State.activeAuctions.length === 0) {
+            State.activeAuctions = Array.from({ length: 5 }, () => this.generateItem());
+        }
+        if (Runtime.intervals.auction) clearInterval(Runtime.intervals.auction);
+        Runtime.intervals.auction = setInterval(() => {
+            if (Runtime.isPaused) return;
+            let changed = false;
+            State.activeAuctions.forEach((a, i) => {
+                if (a) {
+                    a.timeLeft--;
+                    if (a.timeLeft <= 0) {
+                        State.activeAuctions[i] = this.generateItem();
+                        changed = true;
+                    }
+                }
+            });
+            if (document.getElementById('auction-tab')?.classList.contains('active')) UI.renderAuctions();
+        }, 1000);
+    },
+
+    generateItem() {
+        const item = itemsData[Math.floor(Math.random() * itemsData.length)];
+        return { ...item, timeLeft: 15 + Math.floor(Math.random() * 15), price: Math.round(item.price * 0.7) };
+    },
+
+    bid(index) {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const a = State.activeAuctions[index];
+        if (!a) return (Runtime.transactionLock = false);
+
+        if (State.inventory.length >= Config.MAX_INVENTORY) {
+            Chat.addMessage('System', 'Inventory full.', 'system');
+            return (Runtime.transactionLock = false);
+        }
+
+        if (State.balance >= a.price) {
+            Economy.updateBalance(-a.price);
+            State.inventory.push({ ...a, uid: Date.now() + Math.random(), sellPrice: Math.round(a.price * 1.5) });
+            State.activeAuctions[index] = this.generateItem();
+            UI.renderAuctions();
+            UI.renderInventory();
+            SaveSystem.save();
+        } else {
+            Chat.addMessage('System', 'Insufficient balance for bid.', 'system');
+        }
+        Runtime.transactionLock = false;
+    }
+};
+
+// --- 10. CHAT & EVENTS ---
+const Chat = {
+    addMessage(sender, message, type = 'normal') {
+        const now = Date.now();
+        if (type === 'normal' && now - Runtime.lastChatTime < Config.CHAT_COOLDOWN) return;
+        if (type === 'normal') Runtime.lastChatTime = now;
+
+        const safeSender = Utils.sanitizeHTML(sender);
+        const safeMessage = Utils.sanitizeHTML(message).substring(0, 200);
+
+        State.chatLog.push({ sender: safeSender, message: safeMessage, type, time: new Date().toLocaleTimeString() });
+        if (State.chatLog.length > Config.MAX_CHAT) State.chatLog.shift();
+        this.render();
+        SaveSystem.save();
+    },
+
+    render() {
+        if (!DOM.misc.chatContainer) return;
+        const frag = document.createDocumentFragment();
+        State.chatLog.forEach(m => {
+            if (m.type === 'announcement') {
+                frag.appendChild(Utils.createElement('div', ['chat-announcement'], `
+                    <span>${m.sender}</span>
+                    <div class="roblox-verified-badge"><div class="badge-square"></div><div class="badge-check"></div></div>
+                    <span class="announcement-colon">:</span>
+                    <span class="announce-msg">${m.message}</span>
+                `));
+            } else {
+                const isSystem = m.type === 'system';
+                frag.appendChild(Utils.createElement('div', ['chat-message', isSystem ? 'chat-system' : ''], `<b>${m.sender}:</b> ${m.message}`));
+            }
+        });
+        DOM.misc.chatContainer.innerHTML = '';
+        DOM.misc.chatContainer.appendChild(frag);
+        DOM.misc.chatContainer.scrollTop = DOM.misc.chatContainer.scrollHeight;
+    },
+
+    send() {
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        if (msg.startsWith('/')) {
+            const parts = msg.split(' ');
+            const cmd = parts[0].toLowerCase();
+            if (cmd === '/credits') {
+                document.getElementById('credits-modal').classList.remove('hidden');
+                this.addMessage('System', 'Opening credits...', 'system');
+            } else if (cmd === '/pm' && Runtime.isAdminAuthenticated) {
+                const name = parts[1] || 'ADMIN';
+                const announcement = parts.slice(2).join(' ');
+                if (announcement) Events.showGlobalAnnouncement(name, announcement);
+            } else {
+                this.addMessage('System', `Unknown: ${Utils.sanitizeHTML(cmd)}`, 'system');
+            }
+        } else {
+            this.addMessage('You', msg);
+        }
+        input.value = '';
+    }
+};
+
+const Events = {
+    showGlobalAnnouncement(name, message) {
+        const overlay = document.getElementById('announcement-overlay');
+        const nameEl = document.getElementById('announce-name');
+        const msgEl = document.getElementById('announce-msg-body');
+        if (!overlay || !nameEl || !msgEl) return;
+
+        nameEl.textContent = Utils.sanitizeHTML(name);
+        msgEl.textContent = Utils.sanitizeHTML(message);
+        overlay.classList.remove('hidden');
+        setTimeout(() => overlay.classList.add('hidden'), 5000);
+        Chat.addMessage(name, message, 'announcement');
+    },
+
+    applyGlobalEvent(name) {
+        if (State.activeEvent) document.body.classList.remove(`theme-${State.activeEvent}`);
+        itemsData.forEach(i => delete i.mutationMultiplier);
+        State.activeEvent = name;
+        if (name) {
+            document.body.classList.add(`theme-${name}`);
+            const mult = (Math.random() * 2 + 1.5).toFixed(1);
+            itemsData.forEach(i => i.mutationMultiplier = mult);
+            const banner = document.getElementById('event-banner');
+            if (banner) {
+                document.getElementById('event-title').textContent = name.toUpperCase();
+                banner.classList.add('show');
+                setTimeout(() => banner.classList.remove('show'), 3000);
+            }
+        }
+        UI.renderMarket();
+    }
+};
+
+// --- 11. ADMIN ---
+const Admin = {
+    verify() {
+        const e = document.getElementById('admin-email').value;
+        const p = document.getElementById('admin-password').value;
+        const errorEl = document.getElementById('login-error');
+
+        // Mock Auth
+        if (e === 'P2w8999@gmail.com' && p === 'root1234') {
+            Runtime.isAdminAuthenticated = true;
+            document.getElementById('admin-login-modal').classList.add('hidden');
+            if (DOM.adminPanel) DOM.adminPanel.classList.remove('hidden');
+            document.getElementById('admin-badge').classList.remove('hidden');
+            if (errorEl) errorEl.textContent = '';
+            Chat.addMessage('System', 'Admin access granted. (Mock Mode)', 'system');
+        } else {
+            if (errorEl) {
+                errorEl.textContent = 'Invalid credentials. Try admin/admin';
+                errorEl.classList.add('shake');
+                setTimeout(() => errorEl.classList.remove('shake'), 400);
+            }
+        }
+    },
+    populateDropdowns() {
+        const iSel = document.getElementById('admin-item-select');
+        const vSel = document.getElementById('admin-invest-select');
+        if (iSel) {
+            const frag = document.createDocumentFragment();
+            itemsData.forEach(i => frag.appendChild(Utils.createElement('option', [], i.name)).value = i.id);
+            iSel.appendChild(frag);
+        }
+        if (vSel) {
+            const frag = document.createDocumentFragment();
+            investmentsData.forEach(i => frag.appendChild(Utils.createElement('option', [], i.name)).value = i.id);
+            vSel.appendChild(frag);
+        }
+    }
+};
+
+// --- 12. INITIALIZATION & EVENTS ---
+function init() {
+    if (Runtime.isInitialized) return;
+    Runtime.isInitialized = true;
+
+    SaveSystem.load();
+    UI.renderAll();
+    Admin.populateDropdowns();
+    Chat.render();
+    Economy.recalculatePassiveIncome();
+    Markets.startCrypto();
+    Auctions.start();
+
+    if (Runtime.intervals.bankrupt) clearInterval(Runtime.intervals.bankrupt);
+    Runtime.intervals.bankrupt = setInterval(() => {
+        if (!Runtime.isPaused) Economy.checkGameOver();
     }, 3000);
+
+    if (State.activeEvent) Events.applyGlobalEvent(State.activeEvent);
+    Chat.addMessage('System', '🎮 Welcome to Marketplace Tycoon!', 'system');
 }
 
-function clearLeakTimer() {
-    if (leakTimer) {
-        clearTimeout(leakTimer);
-        leakTimer = null;
-    }
-    hideUpdateLeak();
+function cleanupGame() {
+    Object.values(Runtime.intervals).forEach(i => { if (i) clearInterval(i); });
+    if (Runtime.saveTimeout) clearTimeout(Runtime.saveTimeout);
+    Runtime.intervals = {};
+    Runtime.isInitialized = false;
 }
 
-if (btnCloseLeak) {
-    btnCloseLeak.addEventListener('click', hideUpdateLeak);
-}
+function setupGlobalListeners() {
+    document.addEventListener('visibilitychange', () => { Runtime.isPaused = document.hidden; });
 
-// Credits Modal Logic
-const creditsModal = document.getElementById('credits-modal');
-const btnCloseCredits = document.getElementById('btn-close-credits');
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        const index = btn.dataset.index;
+        const price = btn.dataset.price ? parseInt(btn.dataset.price) : null;
 
-function showCredits() {
-    if (!creditsModal) return;
-    creditsModal.classList.remove('hidden');
-    creditsModal.style.display = 'flex';
-}
-
-function hideCredits() {
-    if (!creditsModal) return;
-    creditsModal.classList.add('hidden');
-    creditsModal.style.display = 'none';
-}
-
-if (btnCloseCredits) {
-    btnCloseCredits.addEventListener('click', hideCredits);
-}
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        if (leakModal && !leakModal.classList.contains('hidden')) {
-            hideUpdateLeak();
+        switch (action) {
+            case 'buyItem': Economy.buyItem(id, price); break;
+            case 'buyInvest': Economy.buyInvest(id); break;
+            case 'sellItem': Economy.sellItem(id); break;
+            case 'takeLoan': Loans.take(id); break;
+            case 'repayLoan': Loans.repay(id); break;
+            case 'investStartup': Markets.investStartup(id); break;
+            case 'buyCrypto': Markets.buyCrypto(id); break;
+            case 'sellCrypto': Markets.sellCrypto(id); break;
+            case 'bidAuction': Auctions.bid(parseInt(index)); break;
         }
-        if (creditsModal && !creditsModal.classList.contains('hidden')) {
-            hideCredits();
+    });
+
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            const target = document.getElementById(btn.dataset.tab);
+            if (target) target.classList.add('active');
+        });
+    });
+
+    document.getElementById('btn-play')?.addEventListener('click', () => { UI.switchView('game'); init(); });
+    document.getElementById('btn-restart')?.addEventListener('click', () => SaveSystem.hardReset());
+    document.getElementById('btn-retry')?.addEventListener('click', () => SaveSystem.hardReset());
+
+    document.getElementById('btn-do-login')?.addEventListener('click', Admin.verify);
+    document.getElementById('btn-cancel-login')?.addEventListener('click', () => document.getElementById('admin-login-modal').classList.add('hidden'));
+    document.getElementById('btn-admin-close')?.addEventListener('click', () => DOM.adminPanel.classList.add('hidden'));
+
+    document.getElementById('btn-admin-set')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Economy.updateBalance((parseInt(document.getElementById('admin-robux').value) || 0) - State.balance); SaveSystem.save(); });
+    document.getElementById('btn-admin-add')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Economy.updateBalance(parseInt(document.getElementById('admin-robux').value) || 0); SaveSystem.save(); });
+    document.getElementById('btn-admin-sub')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Economy.updateBalance(-(parseInt(document.getElementById('admin-robux').value) || 0)); SaveSystem.save(); });
+    document.getElementById('btn-admin-give-item')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Economy.buyItem(document.getElementById('admin-item-select').value, 0); SaveSystem.save(); });
+    document.getElementById('btn-admin-give-invest')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Economy.buyInvest(document.getElementById('admin-invest-select').value); SaveSystem.save(); });
+    document.getElementById('btn-admin-god')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; State.godMode = !State.godMode; Chat.addMessage('System', `God Mode: ${State.godMode ? 'ON' : 'OFF'}`, 'system'); SaveSystem.save(); });
+    document.getElementById('btn-trigger-event')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Events.applyGlobalEvent(document.getElementById('admin-event-select').value); SaveSystem.save(); });
+    document.getElementById('btn-event-clear')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; Events.applyGlobalEvent(null); SaveSystem.save(); });
+    document.getElementById('btn-event-mutate')?.addEventListener('click', () => {
+        if (!Runtime.isAdminAuthenticated || !State.activeEvent) return;
+        itemsData.forEach(i => i.mutationMultiplier = (Math.random() * 5 + 1).toFixed(1));
+        UI.renderMarket();
+        SaveSystem.save();
+        Chat.addMessage('System', 'Event items mutated!', 'system');
+    });
+    document.getElementById('btn-admin-multiplier')?.addEventListener('click', () => {
+        if (!Runtime.isAdminAuthenticated) return;
+        const val = parseFloat(document.getElementById('admin-multiplier').value);
+        if (!isNaN(val) && val > 0) State.cpsMultiplier = val;
+        Economy.recalculatePassiveIncome();
+        SaveSystem.save();
+        Chat.addMessage('System', `CPS Multiplier set to ${State.cpsMultiplier}x`, 'system');
+    });
+    document.getElementById('btn-admin-reset')?.addEventListener('click', () => { if (!Runtime.isAdminAuthenticated) return; SaveSystem.hardReset(); });
+    document.getElementById('btn-admin-cmd')?.addEventListener('click', () => {
+        if (!Runtime.isAdminAuthenticated) return;
+        const cmd = document.getElementById('admin-cmd-input').value.trim();
+        if (cmd) Chat.addMessage('System', `Executed command: ${Utils.sanitizeHTML(cmd)}`, 'system');
+    });
+
+    document.getElementById('chat-send-btn')?.addEventListener('click', () => Chat.send());
+    document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') Chat.send(); });
+
+    document.getElementById('btn-create-wallet')?.addEventListener('click', () => {
+        const name = document.getElementById('crypto-acc-input').value;
+        if (!name) return;
+        State.cryptoWalletName = Utils.sanitizeHTML(name);
+        document.getElementById('crypto-setup-section').classList.add('hidden');
+        document.getElementById('crypto-launch-section').classList.remove('hidden');
+        document.getElementById('crypto-wallet-name-display').textContent = `Wallet: ${State.cryptoWalletName}`;
+        SaveSystem.save();
+    });
+
+    document.getElementById('btn-launch-coin')?.addEventListener('click', () => {
+        if (State.myCoin) return Chat.addMessage('System', 'You can only launch one custom coin.', 'system');
+        const ticker = document.getElementById('crypto-coin-input').value;
+        if (!ticker) return;
+        if (State.balance < 10000 && !State.godMode) return Chat.addMessage('System', 'You need R$ 10,000.', 'system');
+
+        if (!State.godMode) Economy.updateBalance(-10000);
+        const safeTicker = Utils.sanitizeHTML(ticker).toUpperCase();
+        const newCoin = { id: 'user_' + Date.now(), name: safeTicker + ' Coin', ticker: safeTicker, price: 100, history: [100], volatility: 0.2 };
+        State.cryptos.push(newCoin);
+        State.myCoin = newCoin;
+        State.cryptoPortfolio[newCoin.id] = 100;
+        document.getElementById('crypto-launch-section').classList.add('hidden');
+        Chat.addMessage('System', `🚀 Launched ${newCoin.ticker}!`, 'system');
+        UI.renderCryptos();
+        SaveSystem.save();
+    });
+
+    document.getElementById('btn-create-startup')?.addEventListener('click', () => {
+        const input = document.getElementById('startup-name-input');
+        if (input && input.value) { Markets.createStartup(input.value); input.value = ''; }
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === '`' || e.key === '~' || e.code === 'Backquote') {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            e.preventDefault();
+            if (Runtime.isAdminAuthenticated) {
+                if (DOM.adminPanel) DOM.adminPanel.classList.toggle('hidden');
+            } else {
+                const loginModal = document.getElementById('admin-login-modal');
+                if (loginModal) loginModal.classList.toggle('hidden');
+            }
         }
+    });
+
+    document.getElementById('btn-close-credits')?.addEventListener('click', () => {
+        document.getElementById('credits-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-trade')?.addEventListener('click', () => {
+        if (Runtime.transactionLock) return;
+        Runtime.transactionLock = true;
+
+        const input = document.getElementById('trade-amount');
+        const result = document.getElementById('trade-result');
+        const amt = parseInt(input.value);
+
+        if (!amt || amt <= 0 || amt > State.balance) {
+            if (result) {
+                result.textContent = 'Invalid amount or insufficient balance.';
+                result.className = 'trade-status text-red';
+            }
+            Runtime.transactionLock = false;
+            return;
+        }
+
+        Economy.updateBalance(-amt, false);
+        const win = Math.random() > 0.5;
+
+        if (win) {
+            const wonAmt = amt * 2;
+            Economy.updateBalance(wonAmt);
+            if (result) {
+                result.textContent = `Won ${Utils.formatCurrency(wonAmt)}!`;
+                result.className = 'trade-status text-green';
+            }
+        } else {
+            Economy.updateBalance(0); // Trigger update UI
+            if (result) {
+                result.textContent = `Lost ${Utils.formatCurrency(amt)}...`;
+                result.className = 'trade-status text-red';
+            }
+        }
+
+        SaveSystem.save();
+        Runtime.transactionLock = false;
+    });
+
+    const chatPanel = document.querySelector('.chat-panel');
+    const chatHeader = document.querySelector('.chat-header');
+    if (chatPanel && chatHeader) {
+        let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
+
+        const startDrag = (e) => {
+            isDragging = true;
+            chatHeader.style.cursor = 'grabbing';
+            const rect = chatPanel.getBoundingClientRect();
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            dragOffsetX = clientX - rect.left;
+            dragOffsetY = clientY - rect.top;
+            e.preventDefault();
+        };
+
+        const onDrag = (e) => {
+            if (!isDragging) return;
+            const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            let newX = clientX - dragOffsetX;
+            let newY = clientY - dragOffsetY;
+
+            newX = Utils.clamp(newX, 0, window.innerWidth - chatPanel.offsetWidth);
+            newY = Utils.clamp(newY, 0, window.innerHeight - chatPanel.offsetHeight);
+
+            chatPanel.style.left = `${newX}px`;
+            chatPanel.style.top = `${newY}px`;
+            chatPanel.style.bottom = 'auto';
+            chatPanel.style.right = 'auto';
+        };
+
+        const stopDrag = () => { if (isDragging) { isDragging = false; chatHeader.style.cursor = 'grab'; } };
+
+        chatHeader.style.cursor = 'grab';
+        chatHeader.addEventListener('mousedown', startDrag);
+        chatHeader.addEventListener('touchstart', startDrag, { passive: false });
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('touchmove', onDrag, { passive: false });
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchend', stopDrag);
     }
-});
-
-// Event Listeners
-const btnPlay = document.getElementById('btn-play');
-if (btnPlay) btnPlay.addEventListener('click', () => {
-    switchView('game');
-    startLeakTimer();
-});
-
-const btnRetry = document.getElementById('btn-retry');
-if (btnRetry) btnRetry.addEventListener('click', () => { resetGame(); clearLeakTimer(); switchView('game'); startLeakTimer(); });
-
-const btnRestart = document.getElementById('btn-restart');
-if (btnRestart) btnRestart.addEventListener('click', () => {
-    clearLeakTimer();
-    switchView('start');
-});
-
-const btnTrade = document.getElementById('btn-trade');
-if (btnTrade) btnTrade.addEventListener('click', highRiskTrade);
-
-const btnCreateStartup = document.getElementById('btn-create-startup');
-const startupNameInput = document.getElementById('startup-name-input');
-if (btnCreateStartup && startupNameInput) {
-    btnCreateStartup.addEventListener('click', () => {
-        const name = startupNameInput.value.trim();
-        if (name) { createStartup(name); startupNameInput.value = ''; }
-    });
 }
 
-if (chatInput) {
-    chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') sendChatMessage();
-    });
-}
-if (chatSendBtn) chatSendBtn.addEventListener('click', sendChatMessage);
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === '`' || e.key === '~') {
-        e.preventDefault();
-        toggleAdminPanel();
-    }
-});
-
-const btnAdminSet = document.getElementById('btn-admin-set');
-const btnAdminAdd = document.getElementById('btn-admin-add');
-const btnAdminSub = document.getElementById('btn-admin-sub');
-const adminRobuxInput = document.getElementById('admin-robux');
-
-if (btnAdminSet && adminRobuxInput) {
-    btnAdminSet.addEventListener('click', () => {
-        const val = parseInt(adminRobuxInput.value);
-        if (!isNaN(val) && val >= 0) { balance = val; updateUI(); saveGame(); }
-    });
-}
-if (btnAdminAdd && adminRobuxInput) {
-    btnAdminAdd.addEventListener('click', () => {
-        const val = parseInt(adminRobuxInput.value);
-        if (!isNaN(val)) { adminAddFunds(val); }
-    });
-}
-if (btnAdminSub && adminRobuxInput) {
-    btnAdminSub.addEventListener('click', () => {
-        const val = parseInt(adminRobuxInput.value);
-        if (!isNaN(val)) { updateBalance(-val); updateUI(); saveGame(); }
-    });
-}
-
-const btnAdminGiveItem = document.getElementById('btn-admin-give-item');
-const adminItemSelect = document.getElementById('admin-item-select');
-if (btnAdminGiveItem && adminItemSelect) {
-    btnAdminGiveItem.addEventListener('click', () => adminGiveItem(adminItemSelect.value));
-}
-
-const btnAdminGiveInvest = document.getElementById('btn-admin-give-invest');
-const adminInvestSelect = document.getElementById('admin-invest-select');
-if (btnAdminGiveInvest && adminInvestSelect) {
-    btnAdminGiveInvest.addEventListener('click', () => adminGiveInvestment(adminInvestSelect.value));
-}
-
-const btnAdminMultiplier = document.getElementById('btn-admin-multiplier');
-const adminMultiplierInput = document.getElementById('admin-multiplier');
-if (btnAdminMultiplier && adminMultiplierInput) {
-    btnAdminMultiplier.addEventListener('click', () => {
-        const val = parseFloat(adminMultiplierInput.value);
-        if (!isNaN(val)) adminSetMultiplier(val);
-    });
-}
-
-const btnAdminGod = document.getElementById('btn-admin-god');
-if (btnAdminGod) btnAdminGod.addEventListener('click', toggleGodMode);
-
-const btnAdminReset = document.getElementById('btn-admin-reset');
-if (btnAdminReset) btnAdminReset.addEventListener('click', () => { resetGame(); switchView('start'); });
-
-const btnAdminCmd = document.getElementById('btn-admin-cmd');
-const adminCmdInput = document.getElementById('admin-cmd-input');
-if (btnAdminCmd && adminCmdInput) {
-    btnAdminCmd.addEventListener('click', () => {
-        const text = adminCmdInput.value.trim();
-        if (text) { processAdminCommand(text); adminCmdInput.value = ''; }
-    });
-}
-
-const btnAdminClose = document.getElementById('btn-admin-close');
-if (btnAdminClose) btnAdminClose.addEventListener('click', toggleAdminPanel);
-
-// Start the game
-init();
-    
+setupGlobalListeners();
+UI.switchView('start');
