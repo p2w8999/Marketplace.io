@@ -1,124 +1,279 @@
-📜 p2w8999 COMMERCIAL LICENSE SYSTEM
+# 📜 p2w8999 Commercial License Agreement
 
-Copyright © 2026 p2w8999. All rights reserved.
+**Version:** 2.0
+**License Revision:** July 2026
+**Copyright © 2026 p2w8999. All Rights Reserved.**
 
-This software is proprietary. You must obtain a valid license to use it beyond viewing.
+---
 
-💰 LICENSE TYPES
-🔒 1. PERMANENT LICENSES (One-Time Payment)
-🟢 Personal License — ₹499 (One-time)
+# Welcome
 
-For private use only.
+Thank you for supporting **p2w8999**.
 
-You CAN:
+This project is proprietary software protected by copyright law. Purchasing a license grants you specific rights to use the software according to the license tier you purchase. Ownership of the source code and intellectual property remains with **p2w8999** unless explicitly stated otherwise.
 
-Use locally
-Modify for personal learning
+---
 
-You CANNOT:
+# 📦 Current Game Version
 
-Publish or share
-Use publicly or commercially
-🔵 Creator License — ₹1,999 (One-time)
+**Current Release:** `V0.1.25 Alpha`
 
-For public projects.
+Future updates may include:
 
-You CAN:
+* 🆕 New gameplay systems
+* ⚡ Performance improvements
+* 🐞 Bug fixes
+* 🎨 UI redesigns
+* 🔒 Security improvements
+* 📈 Additional premium features
+* 🎁 Exclusive content for supported license tiers
 
-Use in public repos/websites
-Modify code
+---
 
-You MUST:
+# 💰 License Plans
 
-Give visible credit: “Created using code by p2w8999”
+## 🟢 Personal License — ₹499 (One-Time)
 
-You CANNOT:
+Perfect for learning and personal enjoyment.
 
-Sell the project
-🟣 Commercial License — ₹4,999 (One-time)
+### Included
 
-For monetized use.
+* Local installation
+* Personal modification
+* Private backups
+* Bug-fix updates (when available)
 
-You CAN:
+### Restrictions
 
-Use in paid apps/games/websites
-Modify and integrate
+You may **NOT**
 
-You MUST:
+* Publish the project
+* Upload source code
+* Sell the software
+* Use commercially
+* Remove copyright notices
 
-Provide attribution
-🔴 Extended License — ₹9,999 (One-time)
+---
 
-Full ownership-style usage.
+## 🔵 Creator License — ₹1,999 (One-Time)
 
-You CAN:
+Designed for creators and developers.
 
-Use commercially
-Remove attribution
-Modify freely
-Integrate into proprietary systems
-⚫ Enterprise License — ₹19,999+ (Custom)
+### Included
 
-For organizations.
+* Public projects
+* Website hosting
+* Source code modifications
+* Future minor updates
+
+### Requirements
+
+Visible credit must be included:
+
+> Created using code by p2w8999
+
+### Restrictions
+
+You may **NOT**
+
+* Resell the project
+* Claim ownership
+* Redistribute the original source as your own
+
+---
+
+## 🟣 Commercial License — ₹4,999 (One-Time)
+
+For businesses and monetized projects.
+
+### Included
+
+* Commercial use
+* Monetized websites
+* Paid games
+* Paid applications
+* Client projects
+* Source code modifications
+* Integration into existing products
+
+### Requirements
+
+Visible attribution is required.
+
+---
+
+## 🔴 Extended License — ₹9,999 (One-Time)
+
+Maximum flexibility for professional developers.
+
+### Included
+
+* Commercial usage
+* Unlimited modifications
+* Private proprietary projects
+* No attribution required
+* Premium update access
+* Priority bug fixes
+
+---
+
+## ⚫ Enterprise License — Starting at ₹19,999
+
+Designed for companies, teams, studios and organizations.
 
 Includes:
 
-Unlimited usage
-Priority support (optional)
-Custom agreements
-🔄 2. SUBSCRIPTION LICENSES
-🟡 Weekly Access — ₹99/week
-Full access to latest version
-Updates included
-No redistribution rights
-🟠 Monthly Access — ₹299/month
-Full usage rights (same as Creator License)
-Includes updates
-Attribution required
-🔵 Yearly Access — ₹2,499/year
-Full Commercial-level access
-Priority updates
-Better value vs monthly
-🔴 Pro Subscription — ₹4,999/year
-Same as Extended License while active
-No attribution required
-Early access to new features
-🛒 WHAT YOU’RE ACTUALLY SELLING
+* Unlimited installations
+* Organization-wide usage
+* Custom licensing terms
+* Priority support
+* Dedicated assistance
+* Optional custom development
+* Volume discounts
 
-Each license grants access to:
+Contact for a custom quotation.
 
-Source code (optional)
-Game systems (terminal, puzzles, UI)
-Future updates (if included)
-Premium features (shop, coins, admin, etc.)
-📩 PURCHASE & DELIVERY
+---
 
-To obtain a license:
+# 🔄 Subscription Plans
 
-Contact: [p2w8999@gmail.com]
-Payment via: UPI / PayPal / etc.
+## 🟡 Weekly Access — ₹99/week
 
-After purchase, user receives:
+* Latest version
+* Weekly updates
+* Bug fixes
+* Personal usage only
 
-License confirmation
-Optional license key
-Permission proof
+---
 
-🚫 STRICT PROHIBITIONS
+## 🟠 Monthly Access — ₹299/month
 
-Without a valid license, you may NOT:
+Includes everything from the Creator License while active.
 
-Copy or reuse code
-Host the project publicly
-Modify and redistribute
-Sell or repackage the project
-⚖️ ENFORCEMENT
+* Continuous updates
+* New features
+* Community support
 
-Violations may result in:
+---
 
-DMCA takedown requests
-Content removal from platforms
-Legal escalation if necessary
-⚠️ DISCLAIMER
+## 🔵 Yearly Access — ₹2,499/year
 
-This software is provided “as is” without warranty.
+Includes Commercial License features while active.
+
+Benefits:
+
+* Lower yearly cost
+* Priority update access
+* Major version upgrades
+
+---
+
+## 🔴 Pro Subscription — ₹4,999/year
+
+The complete experience.
+
+Includes:
+
+* Extended License features
+* Early-access builds
+* Experimental features
+* Beta testing access
+* Highest update priority
+* No attribution required
+
+---
+
+# 🎁 What Your Purchase Includes
+
+Depending on your license, you may receive:
+
+* Complete source code
+* Premium game systems
+* UI assets
+* Admin systems
+* Shop system
+* Economy systems
+* Save system
+* Future updates
+* Premium documentation
+* Technical support (selected plans)
+
+---
+
+# 📥 Purchase Process
+
+To purchase a license, contact:
+
+**Email:** [p2w8999@gmail.com](mailto:p2w8999@gmail.com)
+
+Supported payment methods may include:
+
+* PayPal
+* UPI
+* Bank Transfer
+* Other supported payment methods
+
+After payment you will receive:
+
+* License confirmation
+* Purchase receipt
+* License identifier (if applicable)
+* Download access (if applicable)
+
+---
+
+# 🚫 Prohibited Activities
+
+Without an appropriate license, you may NOT:
+
+* Redistribute the software
+* Upload the source code
+* Sell copies
+* Remove copyright notices
+* Claim authorship
+* Repackage the software
+* Share paid files publicly
+* Circumvent licensing systems
+
+---
+
+# ⚖️ Copyright & Enforcement
+
+Unauthorized distribution or infringement may result in:
+
+* DMCA takedown requests
+* Removal from hosting platforms
+* License termination
+* Legal action where applicable
+
+---
+
+# 📢 Updates
+
+Future releases may include:
+
+* New gameplay mechanics
+* Better optimization
+* Security improvements
+* New UI
+* Additional premium content
+* Expanded customization
+* New tools and systems
+
+Update availability depends on your purchased license.
+
+---
+
+# ⚠️ Disclaimer
+
+This software is provided **"AS IS"** without warranties of any kind, express or implied.
+
+To the maximum extent permitted by applicable law, **p2w8999** shall not be liable for any damages, losses, or claims arising from the use or inability to use this software.
+
+---
+
+# ❤️ Thank You
+
+Every purchase helps support continued development, bug fixes, new features, and future projects.
+
+Thank you for supporting **p2w8999**.
